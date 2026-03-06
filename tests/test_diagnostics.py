@@ -52,14 +52,14 @@ class TestSensitivityAnalysis:
         # ATE=-0.05, SE=0.005 → z = 10, clearly significant
         result = sensitivity_analysis(ate=-0.05, se=0.005)
         row = result[result["gamma"] == 1.0].iloc[0]
-        assert row["conclusion_holds"] is True
+        assert bool(row["conclusion_holds"]) is True
 
     def test_conclusion_overturned_at_large_gamma(self):
         """A weak ATE should be overturned by large unobserved confounding."""
         # ATE=-0.02, SE=0.01 → marginal significance; should fail at large Γ
         result = sensitivity_analysis(ate=-0.02, se=0.01, gamma_values=[1.0, 3.0])
         row_gamma3 = result[result["gamma"] == 3.0].iloc[0]
-        assert row_gamma3["conclusion_holds"] is False
+        assert bool(row_gamma3["conclusion_holds"]) is False
 
     def test_bias_bound_monotone_in_gamma(self):
         """Bias bound should increase with Γ."""
@@ -71,7 +71,7 @@ class TestSensitivityAnalysis:
         """Works correctly with positive ATE (e.g. telematics effect on claims)."""
         result = sensitivity_analysis(ate=0.10, se=0.02)
         row_gamma1 = result[result["gamma"] == 1.0].iloc[0]
-        assert row_gamma1["conclusion_holds"] is True
+        assert bool(row_gamma1["conclusion_holds"]) is True
 
     def test_returns_dataframe(self):
         result = sensitivity_analysis(ate=-0.03, se=0.005)

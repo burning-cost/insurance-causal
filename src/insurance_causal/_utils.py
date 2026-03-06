@@ -21,15 +21,26 @@ def to_pandas(df: "pd.DataFrame | pl.DataFrame") -> pd.DataFrame:
 
     DoubleML operates on pandas DataFrames and numpy arrays. This function
     handles the conversion cleanly so the public API can accept either.
+
+    If polars is installed but the conversion fails (e.g. due to a pyarrow ABI
+    conflict in some environments), the error is re-raised with context.
     """
+    if isinstance(df, pd.DataFrame):
+        return df
+
     try:
         import polars as _polars
         if isinstance(df, _polars.DataFrame):
             return df.to_pandas()
     except ImportError:
         pass
-    if isinstance(df, pd.DataFrame):
-        return df
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to convert polars DataFrame to pandas: {exc}. "
+            "This can happen when polars and pyarrow have ABI conflicts. "
+            "Try passing a pandas DataFrame directly."
+        ) from exc
+
     raise TypeError(
         f"Expected a pandas or polars DataFrame, got {type(df).__name__}."
     )
