@@ -42,7 +42,7 @@ uv add insurance-causal
 Or with pip:
 
 ```bash
-pip install insurance-causal
+uv add insurance-causal
 ```
 
 Dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`.
