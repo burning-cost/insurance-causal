@@ -6,7 +6,7 @@ Causal inference for insurance pricing, built on Double Machine Learning.
 
 Every UK pricing team has the same argument in some form: "Is this factor causing the claims, or is it a proxy for something else?" For telematics, is harsh braking causing accidents or is it just correlated with urban driving? For renewal pricing, is the price increase causing lapse or are the customers receiving large increases systematically more likely to lapse anyway?
 
-These are causal questions. GLM coefficients and GBM feature importances do not answer them — they measure correlation. The standard actuarial response ("we use educated judgment and check for factor stability") is honest but leaves money on the table.
+These are causal questions. GLM coefficients and GBM feature importances do not answer them - they measure correlation. The standard actuarial response ("we use educated judgment and check for factor stability") is honest but leaves money on the table.
 
 Double Machine Learning (DML), introduced by Chernozhukov et al. (2018), solves this. It estimates causal treatment effects from observational data using ML to handle high-dimensional confounders, while preserving valid frequentist inference on the parameter that matters: how much does X causally affect Y?
 
@@ -29,7 +29,7 @@ report = model.confounding_bias_report(naive_coefficient=-0.045)
 
 The naive estimate is roughly double the causal effect. The confounding mechanism: high-risk customers receive larger price increases, and those customers have lower baseline renewal rates. The price change is correlated with risk quality, so the naive regression attributes some of the risk-driven lapse to price sensitivity.
 
-The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong — they will over-price high-risk customers at renewal (correct for other reasons) but for the wrong reason (thinking the price effect is twice as large as it is), and optimisation built on the naive elasticity will be systematically off.
+The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong. They will over-price high-risk customers at renewal (correct for other reasons) but for the wrong reason (thinking the price effect is twice as large as it is), and optimisation built on the naive elasticity will be systematically off.
 
 ---
 
@@ -60,7 +60,7 @@ model = CausalPricingModel(
     outcome_type="binary",
     treatment=PriceChangeTreatment(
         column="pct_price_change",  # proportional change: 0.05 = 5% increase
-        scale="log",                # transform to log(1+D); θ is semi-elasticity
+        scale="log",                # transform to log(1+D); theta is semi-elasticity
     ),
     confounders=["age_band", "ncb_years", "vehicle_age", "prior_claims"],
     cv_folds=5,
@@ -168,7 +168,7 @@ model = CausalPricingModel(
 ## CATE by segment
 
 Average treatment effects within subgroups. Fits a separate DML model per
-segment — computationally expensive but gives segment-level inference.
+segment - computationally expensive but gives segment-level inference.
 
 ```python
 cate = model.cate_by_segment(df, segment_col="age_band")
@@ -201,11 +201,11 @@ report = sensitivity_analysis(
 print(report[["gamma", "conclusion_holds", "ci_lower", "ci_upper"]])
 ```
 
-The Rosenbaum parameter Γ (gamma) is the odds ratio of treatment for two units
-with identical observed confounders. Γ = 1 is no unobserved confounding; Γ = 2
+The Rosenbaum parameter gamma is the odds ratio of treatment for two units
+with identical observed confounders. Gamma = 1 is no unobserved confounding; Gamma = 2
 means an unobserved factor doubles the treatment odds for some units. If
-`conclusion_holds` becomes False at Γ = 1.25, the result is fragile. If it
-holds to Γ = 2.0, the result is robust.
+`conclusion_holds` becomes False at Gamma = 1.25, the result is fragile. If it
+holds to Gamma = 2.0, the result is robust.
 
 ---
 
@@ -214,26 +214,26 @@ holds to Γ = 2.0, the result is robust.
 DML estimates the partially linear model:
 
 ```
-Y = θ₀ · D + g₀(X) + ε
-D = m₀(X) + V
+Y = theta_0 * D + g_0(X) + epsilon
+D = m_0(X) + V
 ```
 
-Where θ₀ is the causal effect of treatment D on outcome Y, g₀(X) is an
-unknown nonlinear confounder effect, and m₀(X) is the conditional expectation
+Where theta_0 is the causal effect of treatment D on outcome Y, g_0(X) is an
+unknown nonlinear confounder effect, and m_0(X) is the conditional expectation
 of treatment given confounders.
 
 The estimation procedure:
-1. Fit E[Y|X] using CatBoost (with 5-fold cross-fitting). Compute residuals Ỹ = Y - Ê[Y|X].
-2. Fit E[D|X] using CatBoost (with 5-fold cross-fitting). Compute residuals D̃ = D - Ê[D|X].
-3. Regress Ỹ on D̃ via OLS. The coefficient is θ̂.
+1. Fit E[Y|X] using CatBoost (with 5-fold cross-fitting). Compute residuals Y_tilde = Y - E_hat[Y|X].
+2. Fit E[D|X] using CatBoost (with 5-fold cross-fitting). Compute residuals D_tilde = D - E_hat[D|X].
+3. Regress Y_tilde on D_tilde via OLS. The coefficient is theta_hat.
 
 Step 3 is just OLS, which gives valid standard errors and confidence intervals.
 The cross-fitting in steps 1-2 ensures that nuisance estimation errors are
-asymptotically orthogonal to the score, so they do not bias θ̂. This is the
+asymptotically orthogonal to the score, so they do not bias theta_hat. This is the
 Neyman orthogonality property that makes DML valid even when the nuisance
 models are regularised ML estimators.
 
-The result: θ̂ is √n-consistent and asymptotically normal, with a valid 95% CI.
+The result: theta_hat is root-n-consistent and asymptotically normal, with a valid 95% CI.
 This is not possible with naive ML plug-in estimators.
 
 ---
@@ -241,10 +241,10 @@ This is not possible with naive ML plug-in estimators.
 ## Why CatBoost for nuisance models?
 
 The nuisance models E[Y|X] and E[D|X] need to be flexible nonlinear estimators
-that converge at n^{-1/4} or faster — a condition satisfied by well-tuned
+that converge at n^{-1/4} or faster - a condition satisfied by well-tuned
 gradient boosted trees. A 2024 systematic evaluation (ArXiv 2403.14385) found
-that gradient boosted trees (XGBoost, LightGBM) outperform LASSO in the DML
-nuisance step when confounding is genuinely nonlinear — which it is for
+that gradient boosted trees outperform LASSO in the DML
+nuisance step when confounding is genuinely nonlinear - which it is for
 insurance data with postcode effects and interaction of age with vehicle type.
 
 CatBoost is the default because it handles categorical features natively
@@ -266,15 +266,15 @@ how fragile the result is to this assumption.
 
 **Near-deterministic treatment.** If price changes are almost entirely
 determined by the pricing model (i.e. D is very close to a deterministic
-function of X), the residualised treatment D̃ will have near-zero variance.
+function of X), the residualised treatment D_tilde will have near-zero variance.
 The DML estimate will be imprecise and the confidence interval wide. This is
-correct behaviour — the data genuinely contain little exogenous variation to
+correct behaviour - the data genuinely contain little exogenous variation to
 identify the causal effect. The solution is to include genuinely exogenous
 sources of variation: manual underwriting decisions, competitive environment
 shocks, or timing effects.
 
 **Mediators vs. confounders.** Including a mediator (a variable causally
-downstream of treatment) as a confounder is the "bad controls" problem — it
+downstream of treatment) as a confounder is the "bad controls" problem - it
 blocks the causal channel you are trying to measure. If NCB is partly caused
 by the claim experience that is itself caused by the risk factors you are
 studying, including NCB as a confounder will attenuate your estimate. Think
@@ -291,17 +291,17 @@ work.
 
 1. Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C.,
    Newey, W. and Robins, J. (2018). "Double/Debiased Machine Learning for
-   Treatment and Structural Parameters." *The Econometrics Journal*, 21(1): C1–C68.
+   Treatment and Structural Parameters." *The Econometrics Journal*, 21(1): C1-C68.
    [ArXiv: 1608.00060](https://arxiv.org/abs/1608.00060)
 
 2. Bach, P., Chernozhukov, V., Kurz, M.S., Spindler, M. and Klaassen, S. (2024).
    "DoubleML: An Object-Oriented Implementation of Double Machine Learning in R."
-   *Journal of Statistical Software*, 108(3): 1–56.
+   *Journal of Statistical Software*, 108(3): 1-56.
    [docs.doubleml.org](https://docs.doubleml.org/)
 
-3. Guelman, L. and Guillén, M. (2014). "A causal inference approach to measure
+3. Guelman, L. and Guillen, M. (2014). "A causal inference approach to measure
    price elasticity in automobile insurance." *Expert Systems with Applications*,
-   41(2): 387–396.
+   41(2): 387-396.
 
 4. Chernozhukov, V. et al. (2024). "Applied Causal Inference Powered by ML and AI."
    [causalml-book.org](https://causalml-book.org/)
