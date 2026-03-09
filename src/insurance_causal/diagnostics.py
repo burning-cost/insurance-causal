@@ -202,20 +202,14 @@ def sensitivity_analysis(
         # Rosenbaum bounds: the bias from an unobserved confounder with
         # odds ratio Γ is bounded by ±log(Γ) * se (approximation).
         # This is a conservative bound on how much the estimate could shift.
-        bias_bound = np.log(gamma) * abs(ate)
+        bias_bound = np.log(gamma) * se
 
         bound_lower = ate - bias_bound
         bound_upper = ate + bias_bound
 
-        # Worst-case CI (widen the less favourable bound)
-        if ate > 0:
-            # Positive effect: worst case is lower bound shifted down
-            ci_lower = bound_lower - z_alpha * se
-            ci_upper = bound_upper + z_alpha * se
-        else:
-            # Negative effect: worst case is upper bound shifted up
-            ci_lower = bound_lower - z_alpha * se
-            ci_upper = bound_upper + z_alpha * se
+        # Worst-case CI: shift the Rosenbaum bounds by ±z * se
+        ci_lower = bound_lower - z_alpha * se
+        ci_upper = bound_upper + z_alpha * se
 
         # Does the conclusion hold (CI does not cross zero)?
         if ate > 0:
