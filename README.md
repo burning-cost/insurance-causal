@@ -111,8 +111,47 @@ Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `
 ## Quick start
 
 ```python
+import numpy as np
+import polars as pl
 from insurance_causal import CausalPricingModel
 from insurance_causal.treatments import PriceChangeTreatment
+
+# Synthetic UK motor renewal portfolio — 1,000 policies
+rng = np.random.default_rng(42)
+n = 1_000
+vehicle_age  = rng.integers(1, 15, n)
+driver_age   = rng.integers(25, 75, n)
+ncb_years    = rng.integers(0, 9, n)
+prior_claims = rng.integers(0, 3, n)
+age_band     = np.where(driver_age < 35, "young",
+               np.where(driver_age < 55, "mid", "senior"))
+
+# Treatment: % price change at renewal (-0.10 to +0.20)
+# High-risk policyholders receive larger increases (this is the confounding)
+risk_score       = 0.05 * prior_claims - 0.02 * ncb_years + rng.normal(0, 0.1, n)
+pct_price_change = 0.05 + 0.3 * risk_score + rng.normal(0, 0.03, n)
+pct_price_change = np.clip(pct_price_change, -0.10, 0.20)
+
+# Outcome: renewal indicator. True causal semi-elasticity = -0.023.
+# The confounding: risk_score drives both price increases AND lapse,
+# so a naive regression will overestimate price sensitivity.
+log_odds = (
+    0.5
+    - 0.023 * np.log1p(pct_price_change)   # causal price effect
+    - 0.40  * risk_score                   # risk-driven lapse (the confounder)
+    + 0.02  * ncb_years
+    + rng.normal(0, 0.05, n)
+)
+renewal = (rng.uniform(size=n) < 1 / (1 + np.exp(-log_odds))).astype(int)
+
+df = pl.DataFrame({
+    "pct_price_change": pct_price_change,
+    "age_band":         age_band,
+    "ncb_years":        ncb_years.astype(float),
+    "vehicle_age":      vehicle_age.astype(float),
+    "prior_claims":     prior_claims.astype(float),
+    "renewal":          renewal,
+})
 
 model = CausalPricingModel(
     outcome="renewal",
