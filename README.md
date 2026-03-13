@@ -4,6 +4,8 @@
 
 Causal inference for insurance pricing, built on Double Machine Learning.
 
+Merged from: `insurance-causal` (core DML), `insurance-autodml` (Riesz representer continuous treatment), and `insurance-elasticity` (FCA renewal pricing optimisation).
+
 ---
 
 Every UK pricing team has the same argument in some form: "Is this factor causing the claims, or is it a proxy for something else?" For telematics, is harsh braking causing accidents or is it just correlated with urban driving? For renewal pricing, is the price increase causing lapse or are the customers receiving large increases systematically more likely to lapse anyway?
@@ -87,19 +89,19 @@ The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are
 ## Installation
 
 ```bash
-uv add insurance-causal
+pip install insurance-causal
 ```
 
 For the elasticity subpackage (requires econML):
 
 ```bash
-uv add "insurance-causal[elasticity]"
+pip install "insurance-causal[elasticity]"
 ```
 
 For all optional dependencies:
 
 ```bash
-uv add "insurance-causal[all]"
+pip install "insurance-causal[all]"
 ```
 
 Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`, `joblib`.
