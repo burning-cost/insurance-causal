@@ -374,6 +374,28 @@ work.
 
 ---
 
+---
+
+## Performance
+
+Benchmarked against **naive Poisson GLM** on synthetic UK motor data — 20,000 policies, hand-crafted DGP with a known true causal effect of −0.15 (15% frequency reduction from a telematics discount). Full notebook: `notebooks/benchmark.py`.
+
+The DGP encodes deliberate confounding: safer drivers are more likely to receive the telematics discount and also have lower claim frequency independently. The benchmark measures how far each method's estimate deviates from the known true effect.
+
+| Metric | Naive Poisson GLM | DML (insurance-causal) | Notes |
+|--------|------------------|----------------------|-------|
+| Estimated treatment effect | biased (overestimates discount) | near −0.15 | true effect is −0.15 |
+| Absolute bias | varies with confounding strength | near zero | primary metric |
+| 95% CI valid | no (assumes no confounding) | yes | Neyman-orthogonal score |
+| Fit time | seconds | 5–15 min (5-fold CatBoost) | per 20k observations |
+
+The bias comparison is the point of the benchmark. A naive GLM typically overestimates the telematics discount's effectiveness because safer drivers (lower baseline frequency) are more likely to get the discount — the GLM attributes some of the underlying risk difference to the treatment. DML removes this by residualising both the outcome and the treatment on the confounder set before running the final regression.
+
+**When to use:** When the treatment is not randomly assigned — which is almost always true in insurance (telematics, renewal pricing, channel, campaign). The `confounding_bias_report()` output directly shows how far the naive estimate has drifted. Pricing decisions made using a biased elasticity estimate carry loss ratio risk proportional to the bias.
+
+**When NOT to use:** When the treatment is genuinely random (an A/B test with proper randomisation) — a simple regression or GLM is unbiased in that setting and DML adds no value. Also note: DML requires a sufficient number of observations (at least a few thousand) and enough exogenous variation in the treatment to identify the effect; near-deterministic pricing algorithms produce wide confidence intervals by design.
+
+
 ## Other Burning Cost libraries
 
 **Model building**
