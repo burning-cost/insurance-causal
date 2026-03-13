@@ -438,6 +438,23 @@ The bias comparison is the point of the benchmark. A naive GLM typically overest
 
 ---
 
+## Performance
+
+Benchmarked against a naive Poisson GLM on synthetic UK motor data (20,000 policies) with a known ground-truth treatment effect. See  for the full methodology.
+
+The benchmark uses a hand-crafted DGP where safer drivers are more likely to receive a telematics discount (the confounding mechanism), with a true causal effect of -0.15 (15% frequency reduction). A naive GLM sees the discount correlated with lower frequency through both the causal channel and the underlying risk differences, producing an inflated estimate.
+
+| Metric | Naive Poisson GLM | DML (insurance-causal) |
+|--------|-------------------|------------------------|
+| Treatment effect estimate | ~-0.24 to -0.28 | ~-0.14 to -0.16 |
+| Bias (absolute) | ~0.09-0.13 | <0.02 |
+| Bias (%) | ~60-90% overestimate | <15% |
+| 95% CI covers true effect | No | Yes |
+| Fit time | <5s | 3-10 min (5-fold, CatBoost) |
+
+The point estimates above reflect the confounding structure of the benchmark DGP; on real data with different confounding strength the bias gap will vary. The practical implication: if you are pricing a telematics discount assuming a 25% frequency reduction based on a naive GLM, you may be over-discounting by 10+ points relative to the true causal effect.
+
+
 ## Licence
 
 MIT. Part of the [Burning Cost](https://github.com/burning-cost) insurance pricing toolkit.
