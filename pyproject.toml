@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal"
-version = "0.1.0"
-description = "Causal inference for insurance pricing: a Double Machine Learning interface built for actuaries."
+version = "0.2.0"
+description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, and causal price elasticity."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -13,7 +13,8 @@ authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
 keywords = [
     "insurance", "causal-inference", "double-machine-learning", "dml",
     "pricing", "actuarial", "treatment-effect", "econometrics",
-    "catboost", "polars",
+    "catboost", "polars", "riesz-representer", "price-elasticity",
+    "dose-response", "renewal-pricing", "GIPP", "PS21/5",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -31,17 +32,36 @@ dependencies = [
     "numpy>=1.24",
     "pandas>=2.0",
     "polars>=0.20",
+    "pyarrow>=12.0",
     "scikit-learn>=1.3",
     "scipy>=1.11",
     "doubleml>=0.7",
     "catboost>=1.2",
+    "joblib>=1.3",
 ]
 
 [project.optional-dependencies]
+elasticity = [
+    "econml>=0.15",
+]
+plots = [
+    "matplotlib>=3.7",
+]
+reports = [
+    "jinja2>=3.1",
+    "matplotlib>=3.7",
+]
+all = [
+    "econml>=0.15",
+    "matplotlib>=3.7",
+    "jinja2>=3.1",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov",
-    "catboost>=1.2",
+    "econml>=0.15",
+    "matplotlib>=3.7",
+    "jinja2>=3.1",
 ]
 
 [project.urls]
@@ -53,6 +73,7 @@ packages = ["src/insurance_causal"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--tb=short"
 
 [dependency-groups]
 dev = [

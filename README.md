@@ -14,6 +14,55 @@ Double Machine Learning (DML), introduced by Chernozhukov et al. (2018), solves 
 
 `insurance-causal` wraps [DoubleML](https://docs.doubleml.org/) with an interface designed for pricing actuaries. You specify the treatment (price change, channel flag, telematics score) and the confounders (rating factors), and it gives you a causal estimate with a confidence interval.
 
+**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (FCA-compliant renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`.
+
+---
+
+## Subpackages
+
+### `insurance_causal.autodml` — Riesz representer-based continuous treatment estimation
+
+For when you have a continuous treatment (actual premium charged, discount, price index) and need to estimate dose-response without assuming a parametric propensity score.
+
+Standard double-ML with continuous treatments requires estimating the generalised propensity score (GPS), which is numerically unstable in renewal portfolios where premium is partially determined by underwriting rules. The Riesz representer approach avoids the GPS entirely via a minimax objective.
+
+```python
+from insurance_causal.autodml import PremiumElasticity, DoseResponseCurve
+
+# Average Marginal Effect: average d/dD E[Y|D,X]
+model = PremiumElasticity(outcome_family="poisson", n_folds=5)
+model.fit(X, D, Y, exposure=exposure)
+result = model.estimate()
+print(result.summary())
+
+# Dose-response curve at specified premium levels
+dr = DoseResponseCurve(outcome_family="poisson")
+dr.fit(X, D, Y)
+curve = dr.evaluate(D_grid=np.linspace(200, 800, 20))
+```
+
+Estimands: Average Marginal Effect (AME), dose-response curve, policy shift counterfactual, selection-corrected elasticity.
+
+### `insurance_causal.elasticity` — FCA PS21/5 compliant renewal pricing optimisation
+
+For UK motor/home renewal teams. Estimates heterogeneous treatment effects (GATE by segment), constructs an elasticity surface over the book, and optimises renewal pricing subject to an ENBP (Expected Net Book Premium) constraint.
+
+```python
+from insurance_causal.elasticity import RenewalElasticityEstimator, RenewalPricingOptimiser
+from insurance_causal.elasticity.data import make_renewal_data
+
+df = make_renewal_data(n=10_000)
+confounders = ["age", "ncd_years", "vehicle_group", "region", "channel"]
+
+est = RenewalElasticityEstimator()
+est.fit(df, confounders=confounders)
+ate, lb, ub = est.ate()
+print(f"ATE: {ate:.3f}  95% CI: [{lb:.3f}, {ub:.3f}]")
+
+opt = RenewalPricingOptimiser(est)
+result = opt.optimise(df, budget_constraint_pct=0.0)  # ENBP-neutral
+```
+
 ---
 
 ## The killer feature: confounding bias report
@@ -31,7 +80,7 @@ report = model.confounding_bias_report(naive_coefficient=-0.045)
 
 The naive estimate is roughly double the causal effect. The confounding mechanism: high-risk customers receive larger price increases, and those customers have lower baseline renewal rates. The price change is correlated with risk quality, so the naive regression attributes some of the risk-driven lapse to price sensitivity.
 
-The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong. They will over-price high-risk customers at renewal (correct for other reasons) but for the wrong reason (thinking the price effect is twice as large as it is), and optimisation built on the naive elasticity will be systematically off.
+The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong.
 
 ---
 
@@ -41,7 +90,19 @@ The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are
 uv add insurance-causal
 ```
 
-Dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`.
+For the elasticity subpackage (requires econML):
+
+```bash
+uv add "insurance-causal[elasticity]"
+```
+
+For all optional dependencies:
+
+```bash
+uv add "insurance-causal[all]"
+```
+
+Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`, `joblib`.
 
 ---
 
@@ -232,6 +293,9 @@ models are regularised ML estimators.
 The result: theta_hat is root-n-consistent and asymptotically normal, with a valid 95% CI.
 This is not possible with naive ML plug-in estimators.
 
+The `autodml` subpackage extends this to continuous treatments without a GPS assumption,
+using the Riesz representer minimax approach (Chernozhukov et al. 2022).
+
 ---
 
 ## Why CatBoost for nuisance models?
@@ -295,11 +359,15 @@ work.
    *Journal of Statistical Software*, 108(3): 1-56.
    [docs.doubleml.org](https://docs.doubleml.org/)
 
-3. Guelman, L. and Guillen, M. (2014). "A causal inference approach to measure
+3. Chernozhukov, V. et al. (2022). "Automatic Debiased Machine Learning of Causal
+   and Structural Effects." *Econometrica*, 90(3): 967-1027.
+   [ArXiv: 2006.10576](https://arxiv.org/abs/2006.10576)
+
+4. Guelman, L. and Guillen, M. (2014). "A causal inference approach to measure
    price elasticity in automobile insurance." *Expert Systems with Applications*,
    41(2): 387-396.
 
-4. Chernozhukov, V. et al. (2024). "Applied Causal Inference Powered by ML and AI."
+5. Chernozhukov, V. et al. (2024). "Applied Causal Inference Powered by ML and AI."
    [causalml-book.org](https://causalml-book.org/)
 
 ---
@@ -342,7 +410,7 @@ work.
 |---------|-------------|
 | [insurance-spatial](https://github.com/burning-cost/insurance-spatial) | BYM2 spatial territory ratemaking for UK personal lines |
 
-[All libraries →](https://burning-cost.github.io)
+[All libraries ->](https://burning-cost.github.io)
 
 ---
 
