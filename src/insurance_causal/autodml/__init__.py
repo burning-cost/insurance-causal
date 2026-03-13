@@ -48,6 +48,8 @@ from insurance_causal.autodml._types import (
     OutcomeFamily,
 )
 
+__version__ = "0.2.0"
+
 __all__ = [
     # Main estimators
     "PremiumElasticity",
@@ -66,4 +68,6 @@ __all__ = [
     "SegmentResult",
     "DoseResponseResult",
     "OutcomeFamily",
+    # Version
+    "__version__",
 ]

@@ -374,7 +374,7 @@ class DoseResponseCurve:
         if show_data_rug:
             ax.plot(
                 self._D,
-                np.full_like(self._D, result.ate.min() - 0.02 * result.ate.ptp()),
+                np.full_like(self._D, result.ate.min() - 0.02 * np.ptp(result.ate)),
                 "|",
                 color="grey",
                 alpha=0.3,
