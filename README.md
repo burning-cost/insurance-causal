@@ -519,6 +519,15 @@ The benchmark uses a hand-crafted DGP where safer drivers are more likely to rec
 The point estimates above reflect the confounding structure of the benchmark DGP; on real data with different confounding strength the bias gap will vary. The practical implication: if you are pricing a telematics discount assuming a 25% frequency reduction based on a naive GLM, you may be over-discounting by 10+ points relative to the true causal effect.
 
 
+
+## Related Libraries
+
+| Library | What it does |
+|---------|-------------|
+| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — causal inference establishes whether a rating factor genuinely drives risk or proxies a protected characteristic |
+| [insurance-causal-policy](https://github.com/burning-cost/insurance-causal-policy) | SDID-based causal evaluation of rate changes — the policy-evaluation complement to this library's treatment-effect estimation |
+| [insurance-interactions](https://github.com/burning-cost/insurance-interactions) | GLM interaction detection — identifies structural gaps in the model that DML can help attribute causally |
+
 ## Licence
 
 MIT. Part of the [Burning Cost](https://github.com/burning-cost) insurance pricing toolkit.
