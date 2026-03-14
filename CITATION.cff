@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "insurance-causal"
+abstract: >
+  Causal inference for insurance pricing using Double Machine Learning (DML).
+  Separates causal effects from confounding bias in pricing data, with
+  CatBoost nuisance models and structured confounding bias reports for
+  UK pricing teams and FCA evidence packs.
+authors:
+  - name: "Burning Cost"
+    website: "https://burning-cost.github.io"
+repository-code: "https://github.com/burning-cost/insurance-causal"
+license: MIT
+keywords:
+  - insurance-pricing
+  - actuarial
+  - causal-inference
+  - double-machine-learning
+  - dml
+  - catboost
+  - confounding-bias
+  - fca
