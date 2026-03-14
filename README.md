@@ -460,6 +460,11 @@ The bias comparison is the point of the benchmark. A naive GLM typically overest
 **When NOT to use:** When the treatment is genuinely random (an A/B test with proper randomisation) — a simple regression or GLM is unbiased in that setting and DML adds no value. Also note: DML requires a sufficient number of observations (at least a few thousand) and enough exogenous variation in the treatment to identify the effect; near-deterministic pricing algorithms produce wide confidence intervals by design.
 
 
+
+## Databricks Notebook
+
+A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/insurance_causal_demo.py).
+
 ## Other Burning Cost libraries
 
 **Model building**
