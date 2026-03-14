@@ -29,7 +29,32 @@ For when you have a continuous treatment (actual premium charged, discount, pric
 Standard double-ML with continuous treatments requires estimating the generalised propensity score (GPS), which is numerically unstable in renewal portfolios where premium is partially determined by underwriting rules. The Riesz representer approach avoids the GPS entirely via a minimax objective.
 
 ```python
+import numpy as np
 from insurance_causal.autodml import PremiumElasticity, DoseResponseCurve
+
+# Synthetic UK motor portfolio — 5,000 policies
+# Treatment D: actual premium charged (continuous, £)
+# Outcome Y: claim count (Poisson)
+# Confounding: safer drivers tend to be offered lower premiums
+rng = np.random.default_rng(42)
+n = 5_000
+
+driver_age  = rng.integers(25, 70, n).astype(float)
+vehicle_age = rng.integers(1, 12, n).astype(float)
+ncb_years   = rng.integers(0, 9, n).astype(float)
+
+# 4-column covariate matrix (3 rating factors + 1 unobserved)
+X = np.column_stack([driver_age, vehicle_age, ncb_years,
+                     rng.standard_normal(n)])
+
+# Treatment: premium charged — correlated with risk (that is the confounding)
+risk_score = 0.02 * np.maximum(30 - driver_age, 0) + 0.05 * vehicle_age - 0.08 * ncb_years
+D = 400 + 200 * risk_score + rng.normal(0, 40, n)
+
+# Outcome: claim count. True causal: each £100 premium increase -> -0.01 on lam
+lam = np.exp(-2.0 + 0.3 * risk_score - 0.0001 * D)
+Y = rng.poisson(lam).astype(float)
+exposure = rng.uniform(0.7, 1.0, n)
 
 # Average Marginal Effect: average d/dD E[Y|D,X]
 model = PremiumElasticity(outcome_family="poisson", n_folds=5)
