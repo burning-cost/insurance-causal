@@ -9,6 +9,8 @@ import numpy as np
 import polars as pl
 import pytest
 
+econml = pytest.importorskip("econml", reason="econml not installed — skipping elasticity tests")
+
 from insurance_causal.elasticity.data import make_renewal_data
 
 

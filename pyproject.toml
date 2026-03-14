@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal"
-version = "0.2.0"
+version = "0.2.1"
 description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, and causal price elasticity."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -78,4 +78,8 @@ addopts = "--tb=short"
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "econml>=0.15",
+    "catboost>=1.2",
+    "matplotlib>=3.7",
+    "jinja2>=3.1",
 ]
