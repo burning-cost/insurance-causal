@@ -65,7 +65,7 @@ print(result.summary())
 # Dose-response curve at specified premium levels
 dr = DoseResponseCurve(outcome_family="poisson")
 dr.fit(X, D, Y)
-curve = dr.evaluate(D_grid=np.linspace(200, 800, 20))
+curve = dr.predict(d_grid=np.linspace(200, 800, 20))
 ```
 
 Estimands: Average Marginal Effect (AME), dose-response curve, policy shift counterfactual, selection-corrected elasticity.
