@@ -48,7 +48,7 @@ from insurance_causal.autodml._types import (
     OutcomeFamily,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.2.2"
 
 __all__ = [
     # Main estimators

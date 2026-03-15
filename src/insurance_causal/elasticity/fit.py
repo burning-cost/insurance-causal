@@ -435,8 +435,9 @@ class RenewalElasticityEstimator:
         elif self.cate_model == "dr_learner":
             if not self.binary_outcome:
                 raise ValueError(
-                    "DRLearner requires binary_outcome=True (binary treatment/outcome). "
-                    "Use 'causal_forest' or 'linear_dml' for continuous treatment."
+                    "DRLearner requires a binary treatment (binary_outcome=True). "
+                    "DRLearner estimates the ATE for binary treatments, not continuous ones. "
+                    "For continuous treatment use 'causal_forest' or 'linear_dml' instead."
                 )
             return DRLearner(
                 model_regression=model_y,

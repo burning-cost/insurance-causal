@@ -95,16 +95,23 @@ semiparametric efficiency bound.</p>
 </div>
 
 <h2>5. FCA Evidence Summary</h2>
-<div class="note">
-<p>This analysis provides evidence that the estimated causal effect of premium
-changes on policyholder outcomes ({ame:+.4f} per unit premium) is statistically
-significant at the {ci_level}% confidence level.  The debiased ML methodology
-controls for observed risk factors (X) and accounts for the confounded relationship
-between premium setting and risk selection.</p>
+<div class="warn">
+<p><strong>Important:</strong> This report provides one quantitative input to a
+fair value assessment.  It is not a determination of FCA compliance.  The debiased
+ML estimate ({ame:+.4f} per unit premium) quantifies the causal relationship between
+premium changes and policyholder outcomes, controlling for observed risk factors (X).
+</p>
 
-<p>This estimate can be used as evidence that pricing differentials reflect measured
-risk differentiation rather than systematic exploitation of loyal customers, subject
-to the identification assumptions described in Section 4.</p>
+<p>The identification assumption — that all material confounders are captured in X —
+must be assessed by a qualified actuary.  Common violations include omitted risk
+factors, competitor price effects, and cohort effects not present in the model.
+A statistically significant causal estimate does not by itself demonstrate that
+pricing differentials reflect risk differentiation: that judgement requires broader
+evidence including market analysis, actuarial sign-off, and qualitative assessment.</p>
+
+<p>Firms preparing evidence for FCA Consumer Duty obligations should treat this
+analysis as a supporting tool, not a standalone compliance demonstration.  The
+methodology notes in Section 4 should accompany any regulatory submission.</p>
 </div>
 
 <div class="footer">

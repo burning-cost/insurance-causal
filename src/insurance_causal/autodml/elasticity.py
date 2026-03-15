@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 
-from insurance_causal.autodml._crossfit import cross_fit_nuisance, compute_ame_scores
+from insurance_causal.autodml._crossfit import cross_fit_nuisance, compute_ame_scores, compute_dg_dD
 from insurance_causal.autodml._inference import run_inference
 from insurance_causal.autodml._types import EstimationResult, OutcomeFamily, SegmentResult
 from insurance_causal.autodml.riesz import ForestRiesz, LinearRiesz
@@ -199,6 +199,7 @@ class PremiumElasticity:
         self._sample_weight = sample_weight
         self._fold_indices = fold_indices
         self._nuisance_models = nuisance_models
+        self._exposure = exposure
         self._is_fitted = True
         return self
 
@@ -216,10 +217,18 @@ class PremiumElasticity:
         if not self._is_fitted:
             raise RuntimeError("Call fit() before estimate().")
 
+        dg_dD = compute_dg_dD(
+            D=self._D,
+            X=self._X,
+            fold_indices=self._fold_indices,
+            nuisance_models=self._nuisance_models,
+            exposure=self._exposure,
+        )
         ame, psi = compute_ame_scores(
             Y=self._Y,
             g_hat=self.g_hat_,
             alpha_hat=self.alpha_hat_,
+            dg_dD=dg_dD,
             sample_weight=self._sample_weight,
         )
 
@@ -270,10 +279,18 @@ class PremiumElasticity:
         if not self._is_fitted:
             raise RuntimeError("Call fit() before effect_by_segment().")
 
+        dg_dD = compute_dg_dD(
+            D=self._D,
+            X=self._X,
+            fold_indices=self._fold_indices,
+            nuisance_models=self._nuisance_models,
+            exposure=self._exposure,
+        )
         _, psi = compute_ame_scores(
             Y=self._Y,
             g_hat=self.g_hat_,
             alpha_hat=self.alpha_hat_,
+            dg_dD=dg_dD,
             sample_weight=self._sample_weight,
         )
 

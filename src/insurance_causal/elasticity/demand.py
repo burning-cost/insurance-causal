@@ -69,11 +69,24 @@ def demand_curve(
     # Per-customer CATE and baseline renewal probability
     cate = estimator.cate(df)
     current_log_change = df["log_price_change"].to_numpy()
-    y_observed = df["renewed"].to_numpy().astype(float)
-    overall_rate = float(np.mean(y_observed))
 
-    # Smoothed baseline renewal probability
-    p0 = 0.2 * overall_rate + 0.8 * y_observed
+    # Use the nuisance model's predicted renewal probability as the per-customer
+    # baseline.  This is smoother than the observed 0/1 outcome: the observed
+    # indicator places all customers at two points (0 or 1), making the demand
+    # curve stochastic rather than reflecting expected behaviour.
+    #
+    # If the estimator exposes predict_proba or a propensity attribute, use it;
+    # otherwise fall back to a smoothed version of the observed outcome.
+    if hasattr(estimator, 'predict_proba') and callable(estimator.predict_proba):
+        p0 = np.clip(estimator.predict_proba(df), 0.01, 0.99)
+    elif hasattr(estimator, '_g_hat') and estimator._g_hat is not None:
+        # Use the fitted nuisance outcome predictions (E[Y|D,X]) as baseline
+        p0 = np.clip(estimator._g_hat, 0.01, 0.99)
+    else:
+        # Fallback: use the portfolio mean (no per-customer variation)
+        y_observed = df["renewed"].to_numpy().astype(float)
+        overall_rate = float(np.mean(y_observed))
+        p0 = np.full(len(df), overall_rate)
 
     tech_prem = df["tech_prem"].to_numpy() if "tech_prem" in df.columns else np.ones(len(df))
     last_prem = df["last_premium"].to_numpy() if "last_premium" in df.columns else np.ones(len(df))

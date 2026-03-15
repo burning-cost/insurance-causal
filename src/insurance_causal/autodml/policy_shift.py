@@ -189,25 +189,17 @@ class PolicyShiftEffect:
                 pred = pred * self._exposure[eval_idx]
             g_hat_shifted[eval_idx] = pred
 
-        # Plug-in: average shifted prediction minus observed mean
-        if self._sample_weight is not None:
-            w = self._sample_weight / self._sample_weight.mean()
-            plugin = float(np.average(g_hat_shifted, weights=w) - np.average(self._Y, weights=w))
-        else:
-            plugin = float(np.mean(g_hat_shifted) - np.mean(self._Y))
-
-        # Bias correction via Riesz representer
-        # The EIF score for this functional is:
-        #   psi_i = g_hat_shifted_i - mean(g_hat_shifted)
-        #           + alpha_hat_i * (Y_i - g_hat_i)
-        # We compute the full DR score centred at the plug-in.
-        mean_g_shifted = np.mean(g_hat_shifted)
-        residual = self._Y - self.g_hat_
-
-        # alpha_hat here approximates the derivative wrt the shifted treatment
-        # which we approximate as delta * D * (dg/dD) / mean(g)
-        # Using the Riesz representer from the AME as a proxy (valid for small delta)
-        psi = (g_hat_shifted - mean_g_shifted) + self.alpha_hat_ * residual
+        # Doubly-robust estimator for E[Y(D*(1+delta))] - E[Y]:
+        #
+        #   theta_DML = mean(g_hat_shifted) + mean(alpha_hat * (Y - g_hat))
+        #               - mean(Y)
+        #
+        # Written as a single EIF score:
+        #   psi_i = g_hat_shifted_i + alpha_hat_i * (Y_i - g_hat_i) - Y_i
+        #
+        # Taking the mean of psi gives theta_DML directly.  Inference on
+        # the mean of psi via the delta method gives the correct SE.
+        psi = g_hat_shifted + self.alpha_hat_ * (self._Y - self.g_hat_) - self._Y
 
         est, se, ci_low, ci_high = run_inference(
             psi=psi,
@@ -217,30 +209,16 @@ class PolicyShiftEffect:
             random_state=self.random_state,
         )
 
-        # The total estimate is plug-in + bias correction
-        bias_correction = est  # mean(psi) is the correction term
-        total_estimate = plugin + bias_correction
-
-        # Recompute se/ci around total estimate
-        psi_total = psi + plugin
-        est2, se2, ci_low2, ci_high2 = run_inference(
-            psi=psi_total,
-            level=self.ci_level,
-            inference=self.inference,
-            sample_weight=self._sample_weight,
-            random_state=self.random_state,
-        )
-
         return EstimationResult(
-            estimate=est2,
-            se=se2,
-            ci_low=ci_low2,
-            ci_high=ci_high2,
+            estimate=est,
+            se=se,
+            ci_low=ci_low,
+            ci_high=ci_high,
             ci_level=self.ci_level,
             n_obs=len(self._Y),
             n_folds=self.n_folds,
-            psi=psi_total,
-            notes=f"delta={delta:+.3f}, plugin={plugin:.4f}",
+            psi=psi,
+            notes=f"delta={delta:+.3f}",
         )
 
     def estimate_curve(

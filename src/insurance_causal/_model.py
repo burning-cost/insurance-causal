@@ -173,6 +173,7 @@ class CausalPricingModel:
         nuisance_model: Literal["catboost"] = "catboost",
         cv_folds: int = 5,
         random_state: int = 42,
+        _segment_iterations: int | None = None,
     ) -> None:
         self.outcome = outcome
         self.outcome_type = outcome_type
@@ -182,6 +183,7 @@ class CausalPricingModel:
         self.nuisance_model = nuisance_model
         self.cv_folds = cv_folds
         self.random_state = random_state
+        self._segment_iterations = _segment_iterations
 
         # Set after fitting
         self._dml_model = None
@@ -297,12 +299,23 @@ class CausalPricingModel:
 
         For binary treatments (propensity model), we use CatBoostClassifier.
         For continuous treatments and all outcomes, we use CatBoostRegressor.
+
+        When ``_segment_iterations`` is set (via ``cate_by_segment`` for small
+        segments), iterations are capped to prevent overfitting on small data.
         """
         ml_y = build_catboost_regressor(self.random_state)
         if isinstance(self.treatment, BinaryTreatment):
             ml_d = build_catboost_classifier(self.random_state)
         else:
             ml_d = build_catboost_regressor(self.random_state)
+
+        if self._segment_iterations is not None:
+            # Clone with reduced iterations for small segment sub-models
+            ml_y = ml_y.copy()
+            ml_y.set_params(iterations=self._segment_iterations)
+            ml_d = ml_d.copy()
+            ml_d.set_params(iterations=self._segment_iterations)
+
         return ml_y, ml_d
 
     def _check_fitted(self) -> None:
@@ -427,6 +440,32 @@ class CausalPricingModel:
                 continue
 
             df_seg = df_pd[mask].copy()
+
+            # Warn when segment is small: CatBoost with default 500 iterations
+            # on fewer than 500 observations will overfit severely.
+            # Reduce iterations proportionally so that the model sees at least
+            # 5 training examples per tree.  The floor of n_seg // 5 ensures
+            # the model has some capacity without overfitting.
+            if n_seg < 500:
+                import warnings
+                import math
+                max_iter = max(50, n_seg // 5)
+                warnings.warn(
+                    f"Segment '{segment_val}' has only {n_seg} observations. "
+                    f"CatBoost iterations capped at {max_iter} to reduce overfitting. "
+                    "Confidence intervals for this segment will be wide. "
+                    "Consider increasing min_segment_size or interpreting this "
+                    "segment's estimate with caution.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                # Build a nuisance model with reduced iterations
+                from insurance_causal._utils import build_catboost_regressor, build_catboost_classifier
+                from catboost import CatBoostRegressor, CatBoostClassifier
+                _seg_iterations = max_iter
+            else:
+                _seg_iterations = None  # use model defaults
+
             seg_model = CausalPricingModel(
                 outcome=self.outcome,
                 outcome_type=self.outcome_type,
@@ -436,6 +475,7 @@ class CausalPricingModel:
                 nuisance_model=self.nuisance_model,
                 cv_folds=min(self.cv_folds, max(2, n_seg // 100)),
                 random_state=self.random_state,
+                _segment_iterations=_seg_iterations,
             )
             try:
                 seg_model.fit(df_seg)

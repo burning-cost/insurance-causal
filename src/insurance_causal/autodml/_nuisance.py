@@ -47,10 +47,56 @@ class _NuisanceWrapper:
 
 
 def _build_DX(D: np.ndarray, X: np.ndarray) -> np.ndarray:
-    """Stack [D, X] into a single feature matrix."""
+    """Stack [D, X] into a single float feature matrix for sklearn models."""
     D = np.asarray(D, dtype=float).reshape(-1, 1)
     X = np.asarray(X, dtype=float)
     return np.hstack([D, X])
+
+
+def _build_DX_with_cats(
+    D: np.ndarray, X
+) -> "tuple":
+    """
+    Stack [D, X] preserving object/categorical columns for CatBoost.
+
+    Returns (DX_array, cat_feature_indices) where DX_array is a numpy
+    object array (for string categoricals) or float array (for purely numeric
+    data), and cat_feature_indices is a list of column indices that CatBoost
+    should treat as categorical.
+
+    When X is a plain numpy float array, this is equivalent to _build_DX()
+    with no categorical features identified.
+
+    When X is a pandas DataFrame or contains object/category dtype columns,
+    the categorical column indices are identified and returned so that
+    CatBoost can handle them natively without label encoding.
+    """
+    import pandas as pd
+
+    D_arr = np.asarray(D, dtype=float).reshape(-1, 1)
+    cat_feature_indices: list = []
+
+    if isinstance(X, pd.DataFrame):
+        cat_cols = [
+            i for i, dtype in enumerate(X.dtypes)
+            if dtype == object or str(dtype) == "category"
+        ]
+        # Categorical columns shifted by 1 because D is prepended
+        cat_feature_indices = [c + 1 for c in cat_cols]
+
+        # Build a mixed-type matrix: use object dtype to preserve string cats
+        if cat_cols:
+            X_arr = X.to_numpy(dtype=object)
+            DX = np.hstack([D_arr.astype(object), X_arr])
+        else:
+            X_arr = X.to_numpy(dtype=float)
+            DX = np.hstack([D_arr, X_arr])
+    else:
+        # Plain numpy array — no categoricals available
+        X_arr = np.asarray(X, dtype=float)
+        DX = np.hstack([D_arr, X_arr])
+
+    return DX, cat_feature_indices
 
 
 class SklearnNuisance(_NuisanceWrapper):
@@ -199,24 +245,54 @@ class CatBoostNuisance(_NuisanceWrapper):
         Y: np.ndarray,
         sample_weight: Optional[np.ndarray] = None,
     ) -> "CatBoostNuisance":
-        DX = _build_DX(D, X)
+        DX, cat_feature_indices = _build_DX_with_cats(D, X)
         Y = np.asarray(Y, dtype=float).ravel()
         if self.outcome_family in (OutcomeFamily.POISSON, OutcomeFamily.GAMMA, OutcomeFamily.TWEEDIE):
             Y = np.clip(Y, 1e-8, None)
 
+        self._cat_feature_indices = cat_feature_indices
         self._model = self._build_model()
-        kw: dict = {}
-        if sample_weight is not None:
-            kw["sample_weight"] = sample_weight
-        self._model.fit(DX, Y, **kw)
+
+        if cat_feature_indices:
+            try:
+                from catboost import Pool
+            except ImportError as exc:
+                raise ImportError(
+                    "CatBoost is required for CatBoostNuisance. "
+                    "Install with: pip install insurance-autodml[catboost]"
+                ) from exc
+            pool = Pool(
+                DX, Y,
+                cat_features=cat_feature_indices,
+                weight=sample_weight,
+            )
+            self._model.fit(pool)
+        else:
+            kw: dict = {}
+            if sample_weight is not None:
+                kw["sample_weight"] = sample_weight
+            self._model.fit(DX, Y, **kw)
+
         self._is_fitted = True
         return self
 
     def predict(self, D: np.ndarray, X: np.ndarray) -> np.ndarray:
         if not self._is_fitted:
             raise RuntimeError("fit() must be called before predict().")
-        DX = _build_DX(D, X)
-        pred = self._model.predict(DX)
+        cat_feature_indices = getattr(self, "_cat_feature_indices", [])
+        DX, _ = _build_DX_with_cats(D, X)
+        if cat_feature_indices:
+            try:
+                from catboost import Pool
+            except ImportError as exc:
+                raise ImportError(
+                    "CatBoost is required for CatBoostNuisance. "
+                    "Install with: pip install insurance-autodml[catboost]"
+                ) from exc
+            pool = Pool(DX, cat_features=cat_feature_indices)
+            pred = self._model.predict(pool)
+        else:
+            pred = self._model.predict(DX)
         if self.outcome_family in (OutcomeFamily.POISSON, OutcomeFamily.GAMMA, OutcomeFamily.TWEEDIE):
             pred = np.clip(pred, 1e-8, None)
         return pred

@@ -240,20 +240,33 @@ class DoseResponseCurve:
         ci_high_arr = np.zeros(m)
 
         for j, d in enumerate(d_grid):
-            # Kernel weights
+            # Kernel weights over the full sample
             u = (self._D - d) / h
             k_weights = self._kernel_fn(u) / h
-
-            # Doubly-robust scores:
-            # psi_i(d) = k_i / (mean(k_i)) * (Y_i - g_hat_i) + g_hat_d_i
-            # where g_hat_d_i = E[Y | D=d, X_i] from the nuisance model.
 
             # Compute g_hat at treatment value d for all observations
             g_hat_d = self._predict_at_d(d)
 
-            # Normalised kernel weights (avoids GPS estimation)
-            k_sum = np.mean(k_weights)
-            if k_sum < 1e-10:
+            # Per-fold kernel normalisation.
+            #
+            # DML validity requires that within each fold, the kernel weights are
+            # normalised using only the observations from that fold's eval set.
+            # Global normalisation mixes fold-specific nuisance predictions and
+            # can introduce a small systematic bias when folds are unequal
+            # (e.g. after duplicates="drop" in cate_by_decile).
+            k_norm = np.full(len(self._Y), np.nan)
+            fold_weight_sums = []
+
+            for (train_idx, eval_idx), _ in zip(self._fold_indices, self._nuisance_models):
+                k_fold = k_weights[eval_idx]
+                k_fold_mean = np.mean(k_fold)
+                fold_weight_sums.append(k_fold_mean)
+                if k_fold_mean > 1e-10:
+                    k_norm[eval_idx] = k_fold / k_fold_mean
+                else:
+                    k_norm[eval_idx] = 0.0
+
+            if np.all(np.array(fold_weight_sums) < 1e-10):
                 warnings.warn(
                     f"Kernel weight sum near zero at d={d:.2f}. "
                     "This treatment value may be outside the support of the data.",
@@ -263,9 +276,7 @@ class DoseResponseCurve:
                 ate_arr[j] = np.nan
                 continue
 
-            k_norm = k_weights / k_sum
-
-            # DR score
+            # DR score with per-fold normalised kernel weights
             psi = k_norm * (self._Y - self.g_hat_) + g_hat_d
 
             est, se, ci_low, ci_high = eif_inference(

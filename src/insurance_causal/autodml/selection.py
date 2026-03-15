@@ -130,8 +130,11 @@ class SelectionCorrectedElasticity:
         D : array-like of shape (n,)
             Continuous treatment (premium).
         Y : array-like of shape (n,)
-            Outcome.  For policies with S=0, this value is ignored (can be
-            set to 0 or NaN — the estimator masks them out).
+            Outcome.  For policies with S=0 (non-renewers), Y must be set to 0,
+            not NaN.  Setting Y=NaN for non-renewers will produce NaN estimates
+            because numpy evaluates NaN * 0 = NaN in the score computation.
+            Use ``np.nan_to_num(Y, nan=0.0)`` before calling fit() if your
+            data uses NaN to indicate missing outcomes.
         S : array-like of shape (n,)
             Selection indicator: 1 if renewed/outcome observed, 0 otherwise.
         exposure : array-like of shape (n,), optional
@@ -258,11 +261,25 @@ class SelectionCorrectedElasticity:
 
         # IPW-corrected EIF score:
         # psi_i = S_i / pi_hat_i * alpha_hat_i * (Y_i - g_hat_i) + alpha_hat_i
+        #
+        # For non-renewers (S_i = 0), Y_i should be 0 (not NaN).
+        # We defensively replace any NaN in Y with 0 here to avoid propagating
+        # NaN through the score, but callers should ensure Y=0 for non-renewers.
         S = self._S
         pi = self.pi_hat_
         alpha = self.alpha_hat_
-        Y = self._Y
+        Y = np.where(np.isnan(self._Y), 0.0, self._Y)
         g = self.g_hat_
+
+        if np.any(np.isnan(self._Y) & (S == 1)):
+            import warnings
+            warnings.warn(
+                "NaN values found in Y for selected (S=1) observations. "
+                "These indicate genuinely missing outcomes for renewers and will "
+                "corrupt the estimate. Check your data.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         psi = (S / pi) * alpha * (Y - g) + alpha
 

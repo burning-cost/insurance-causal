@@ -138,103 +138,39 @@ def sensitivity_analysis(
     se: float,
     gamma_values: list[float] | None = None,
     alpha: float = 0.05,
-) -> pd.DataFrame:
+) -> "pd.DataFrame":
     """
-    Rosenbaum-style sensitivity analysis for unobserved confounding.
+    Sensitivity analysis for unobserved confounding.
 
-    DML assumes all confounders are observed. In practice, some confounders
-    are always missing. This function computes how strong an unobserved binary
-    confounder would need to be to change our conclusion.
+    .. deprecated::
+        The previous implementation used the formula ``bias_bound = log(Gamma) * SE``,
+        which has no statistical basis.  The Rosenbaum (1987) sensitivity parameter is
+        designed for rank-based tests in matched observational studies and does not
+        translate to a bias of ``log(Gamma) * SE`` on a DML point estimate.
 
-    The Rosenbaum sensitivity parameter Γ (gamma) represents the odds ratio of
-    treatment assignment for two units with identical observed confounders X but
-    differing on the unobserved confounder. Γ = 1 means no unobserved
-    confounding. Γ = 2 means an unobserved factor doubles the odds of treatment
-    for some units relative to comparable units.
+        This function is being redesigned using the Cinelli-Hazlett (2020) partial R2
+        omitted variable sensitivity framework, which is tractable in regression
+        settings and has a natural DML extension.
 
-    This implementation applies the sensitivity bounds to the DML point estimate
-    and standard error rather than to a rank-based test statistic (the classical
-    Rosenbaum approach). This is an approximation but is directly interpretable
-    in the DML context: it shows how the conclusion changes as we allow for
-    progressively stronger unobserved confounding.
+        In the interim, use ``SelectionCorrectedElasticity.sensitivity_bounds()`` for
+        the Manski-style IPW sensitivity bounds appropriate for renewal selection models,
+        or ``CausalPricingModel.confounding_bias_report()`` for a qualitative assessment
+        of confounding magnitude.
 
-    Parameters
-    ----------
-    ate : float
-        Point estimate of the average treatment effect (from model.average_treatment_effect()).
-    se : float
-        Standard error of the estimate.
-    gamma_values : list[float] | None
-        Values of Γ to evaluate. Default: [1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 3.0].
-        Γ = 1.0 is the baseline (no unobserved confounding).
-    alpha : float
-        Significance level for confidence intervals. Default: 0.05.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per Γ value. Columns: gamma, bound_lower, bound_upper,
-        ci_lower, ci_upper, conclusion_holds, p_value_upper, p_value_lower.
-
-    Notes
-    -----
-    "conclusion_holds" is True when the sign of the causal estimate is robust
-    to that level of unobserved confounding — i.e., the confidence interval
-    does not contain zero at that Γ value.
-
-    If conclusion_holds becomes False at Γ = 1.25, the result is fragile:
-    an unobserved confounder that increases treatment odds by only 25% for
-    some units would overturn the conclusion. If it holds to Γ = 2.0, the
-    result is robust.
-
-    Example
-    -------
-    >>> report = sensitivity_analysis(ate=-0.023, se=0.004)
-    >>> print(report[["gamma", "conclusion_holds", "ci_lower", "ci_upper"]])
+    Raises
+    ------
+    NotImplementedError
+        Always. The previous formula is removed because it gave false assurance
+        and misleading results that should not appear in pricing committee reports.
     """
-    if gamma_values is None:
-        gamma_values = [1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 3.0]
-
-    z_alpha = stats.norm.ppf(1 - alpha / 2)
-
-    rows = []
-    for gamma in gamma_values:
-        # Rosenbaum bounds: the bias from an unobserved confounder with
-        # odds ratio Γ is bounded by ±log(Γ) * se (approximation).
-        # This is a conservative bound on how much the estimate could shift.
-        bias_bound = np.log(gamma) * se
-
-        bound_lower = ate - bias_bound
-        bound_upper = ate + bias_bound
-
-        # Worst-case CI: shift the Rosenbaum bounds by ±z * se
-        ci_lower = bound_lower - z_alpha * se
-        ci_upper = bound_upper + z_alpha * se
-
-        # Does the conclusion hold (CI does not cross zero)?
-        if ate > 0:
-            conclusion_holds = ci_lower > 0
-        else:
-            conclusion_holds = ci_upper < 0
-
-        # p-value from the worst-case bound
-        worst_case_effect = bound_lower if ate > 0 else bound_upper
-        p_value = 2 * stats.norm.sf(abs(worst_case_effect) / se)
-
-        rows.append({
-            "gamma": gamma,
-            "bias_bound": round(bias_bound, 6),
-            "bound_lower": round(bound_lower, 6),
-            "bound_upper": round(bound_upper, 6),
-            "ci_lower": round(ci_lower, 6),
-            "ci_upper": round(ci_upper, 6),
-            "conclusion_holds": conclusion_holds,
-            "p_value_worst_case": round(p_value, 4),
-        })
-
-    result = pd.DataFrame(rows)
-    result["gamma"] = result["gamma"].astype(float)
-    return result
+    raise NotImplementedError(
+        "sensitivity_analysis() is being redesigned. "
+        "The previous formula (bias_bound = log(Gamma) * SE) has no statistical "
+        "basis and has been removed. "
+        "Use SelectionCorrectedElasticity.sensitivity_bounds() for IPW-based "
+        "sensitivity bounds, or confounding_bias_report() for a qualitative "
+        "assessment of confounding magnitude."
+    )
 
 
 def nuisance_model_summary(model: "CausalPricingModel") -> dict:
