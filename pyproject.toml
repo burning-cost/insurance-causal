@@ -15,6 +15,8 @@ keywords = [
     "pricing", "actuarial", "treatment-effect", "econometrics",
     "catboost", "polars", "riesz-representer", "price-elasticity",
     "dose-response", "renewal-pricing", "GIPP", "PS21/5",
+    "UK",
+    "personal lines",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -68,6 +70,7 @@ dev = [
 [project.urls]
 Repository = "https://github.com/burning-cost/insurance-causal"
 Issues = "https://github.com/burning-cost/insurance-causal/issues"
+Homepage = "https://github.com/burning-cost/insurance-causal"
 Documentation = "https://burning-cost.github.io/insurance-causal"
 
 [tool.hatch.build.targets.wheel]
