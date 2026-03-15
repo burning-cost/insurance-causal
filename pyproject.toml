@@ -62,11 +62,13 @@ dev = [
     "econml>=0.15",
     "matplotlib>=3.7",
     "jinja2>=3.1",
+    "pdoc>=14.0.0",
 ]
 
 [project.urls]
 Repository = "https://github.com/burning-cost/insurance-causal"
 Issues = "https://github.com/burning-cost/insurance-causal/issues"
+Documentation = "https://burning-cost.github.io/insurance-causal"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_causal"]
@@ -82,4 +84,5 @@ dev = [
     "catboost>=1.2",
     "matplotlib>=3.7",
     "jinja2>=3.1",
+    "pdoc>=14.0.0",
 ]
