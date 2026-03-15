@@ -536,3 +536,7 @@ The point estimates above reflect the confounding structure of the benchmark DGP
 ## Licence
 
 MIT. Part of the [Burning Cost](https://github.com/burning-cost) insurance pricing toolkit.
+
+---
+
+**Need help implementing this in production?** [Talk to us](https://burning-cost.github.io/work-with-us/).
