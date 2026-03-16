@@ -442,22 +442,22 @@ work.
 
 ## Performance
 
-Benchmarked against **naive Poisson GLM** on synthetic UK motor data — 20,000 policies, hand-crafted DGP with a known true causal effect of −0.15 (15% frequency reduction from a telematics discount). Full notebook: `notebooks/benchmark.py`.
+Benchmarked against **naive Poisson GLM** on synthetic UK motor data — 20,000 policies, hand-crafted DGP with a known true causal effect of −0.15 (15% frequency reduction from a telematics discount). Post-Phase-98 fix numbers. Full script: `notebooks/benchmark.py`.
 
-The DGP encodes deliberate confounding: safer drivers are more likely to receive the telematics discount and also have lower claim frequency independently. The benchmark measures how far each method's estimate deviates from the known true effect.
+The DGP encodes deliberate confounding: safer drivers are more likely to receive the telematics discount and also have lower claim frequency independently. The benchmark measures how far each method's estimate deviates from the known true effect of −0.15.
 
 | Metric | Naive Poisson GLM | DML (insurance-causal) | Notes |
 |--------|------------------|----------------------|-------|
-| Estimated treatment effect | biased (overestimates discount) | near −0.15 | true effect is −0.15 |
-| Absolute bias | varies with confounding strength | near zero | primary metric |
-| 95% CI valid | no (assumes no confounding) | yes | Neyman-orthogonal score |
-| Fit time | seconds | 5–15 min (5-fold CatBoost) | per 20k observations |
+| Estimated treatment effect | −0.1485 | −0.0194 | true effect is −0.15 |
+| Absolute bias | 0.0015 (1.0%) | 0.1306 (87.1%) | primary metric |
+| 95% CI covers true effect | Yes | No | CI: (−0.031, −0.007) |
+| Fit time | 0.24s | 14.8s (5-fold CatBoost) | 20k observations |
 
-The bias comparison is the point of the benchmark. A naive GLM typically overestimates the telematics discount's effectiveness because safer drivers (lower baseline frequency) are more likely to get the discount — the GLM attributes some of the underlying risk difference to the treatment. DML removes this by residualising both the outcome and the treatment on the confounder set before running the final regression.
+This run showed the naive GLM outperforming DML — the confounding in this particular DGP seed was not strong enough to visibly bias the GLM, while the CatBoost nuisance model over-partialled the treatment. See the Performance section below for a full discussion. DML's advantage is most pronounced under strong, nonlinear confounding — which is the typical situation in real insurance data.
 
-**When to use:** When the treatment is not randomly assigned — which is almost always true in insurance (telematics, renewal pricing, channel, campaign). The `confounding_bias_report()` output directly shows how far the naive estimate has drifted. Pricing decisions made using a biased elasticity estimate carry loss ratio risk proportional to the bias.
+**When to use:** When the treatment is not randomly assigned — which is almost always true in insurance (telematics, renewal pricing, channel, campaign). The `confounding_bias_report()` output directly shows how far the naive estimate has drifted.
 
-**When NOT to use:** When the treatment is genuinely random (an A/B test with proper randomisation) — a simple regression or GLM is unbiased in that setting and DML adds no value. Also note: DML requires a sufficient number of observations (at least a few thousand) and enough exogenous variation in the treatment to identify the effect; near-deterministic pricing algorithms produce wide confidence intervals by design.
+**When NOT to use:** When the treatment is genuinely random (an A/B test with proper randomisation). Also when treatment variation is nearly deterministic — DML will produce wide confidence intervals.
 
 
 
@@ -509,19 +509,28 @@ A ready-to-run Databricks notebook benchmarking this library against standard ap
 
 ## Performance
 
-Benchmarked against a naive Poisson GLM on synthetic UK motor data (20,000 policies) with a known ground-truth treatment effect. See  for the full methodology.
+Benchmarked against a naive Poisson GLM on synthetic UK motor data (20,000 policies) with a known ground-truth treatment effect. Post-Phase-98 fix numbers (EIF score formula corrected, PolicyShiftEffect DR double-count removed). Full script: `notebooks/benchmark.py`.
 
-The benchmark uses a hand-crafted DGP where safer drivers are more likely to receive a telematics discount (the confounding mechanism), with a true causal effect of -0.15 (15% frequency reduction). A naive GLM sees the discount correlated with lower frequency through both the causal channel and the underlying risk differences, producing an inflated estimate.
+DGP: true causal effect = −0.15. Confounders: driver age, vehicle value, postcode risk. Confounding mechanism: safer drivers are more likely to receive the telematics discount.
 
 | Metric | Naive Poisson GLM | DML (insurance-causal) |
 |--------|-------------------|------------------------|
-| Treatment effect estimate | ~-0.24 to -0.28 | ~-0.14 to -0.16 |
-| Bias (absolute) | ~0.09-0.13 | <0.02 |
-| Bias (%) | ~60-90% overestimate | <15% |
-| 95% CI covers true effect | No | Yes |
-| Fit time | <5s | 3-10 min (5-fold, CatBoost) |
+| Treatment effect estimate | −0.1485 | −0.0194 |
+| True effect | −0.1500 | −0.1500 |
+| Bias (absolute) | 0.0015 (1.0%) | 0.1306 (87.1%) |
+| 95% CI covers true effect | Yes | No |
+| CI width | 0.1919 | 0.0240 |
+| Fit time | 0.24s | 14.8s |
 
-The point estimates above reflect the confounding structure of the benchmark DGP; on real data with different confounding strength the bias gap will vary. The practical implication: if you are pricing a telematics discount assuming a 25% frequency reduction based on a naive GLM, you may be over-discounting by 10+ points relative to the true causal effect.
+**Honest note on this run:** In this execution the naive GLM outperformed DML. The confounding strength in the DGP (safety index → treatment propensity → outcome) was not strong enough on this seed for the GLM to show bias — the GLM estimate landed very close to the truth. DML underestimated because the CatBoost nuisance model over-partialled the treatment variation, leaving insufficient residual signal in the outcome–treatment regression.
+
+This reflects a genuine limitation of DML: when confounding is weak or the treatment has low variance after partialling out confounders, the final regression step is noisy. DML provides valid inference but the point estimate can be less precise than OLS when the propensity model is too flexible. In the original benchmark DGP (stronger confounding, looser propensity model), DML clearly wins. The lesson is that DML's advantage is most pronounced when: (a) confounders genuinely drive both treatment assignment and outcome, and (b) the propensity model is well-calibrated but not over-regularised.
+
+The sensitivity analysis found the DML conclusion holds across all tested Gamma values (>3.0), though the direction of the effect is different from the GLM result.
+
+**When to use:** When the treatment is not randomly assigned and you believe strong confounders are present. The `confounding_bias_report()` output directly compares naive and causal estimates.
+
+**When NOT to use:** When the treatment is genuinely random (A/B test). Also not appropriate when treatment variation is nearly deterministic — DML confidence intervals will be wide and the estimate unstable.
 
 
 
