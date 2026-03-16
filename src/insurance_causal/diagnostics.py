@@ -13,8 +13,8 @@ The diagnostics answer three practical questions:
    distribution? (Answerable after fitting with a segment column.)
 
 3. sensitivity_analysis() — How strong would an unobserved confounder need
-   to be to overturn our conclusion? (Rosenbaum-style bounds, answerable
-   after fitting.)
+   to be to overturn our conclusion? (Heuristic sensitivity bounds inspired
+   by Rosenbaum's framework, answerable after fitting.)
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ def sensitivity_analysis(
     alpha: float = 0.05,
 ) -> "pd.DataFrame":
     """
-    Sensitivity analysis for unobserved confounding.
+    Heuristic sensitivity bounds inspired by Rosenbaum's framework for unobserved confounding.
 
     .. deprecated::
         The previous implementation used the formula ``bias_bound = log(Gamma) * SE``,
@@ -166,10 +166,10 @@ def sensitivity_analysis(
     raise NotImplementedError(
         "sensitivity_analysis() is being redesigned. "
         "The previous formula (bias_bound = log(Gamma) * SE) has no statistical "
-        "basis and has been removed. "
-        "Use SelectionCorrectedElasticity.sensitivity_bounds() for IPW-based "
-        "sensitivity bounds, or confounding_bias_report() for a qualitative "
-        "assessment of confounding magnitude."
+        "basis and has been removed. See Cinelli and Hazlett (2020) for a proper "
+        "treatment. Use SelectionCorrectedElasticity.sensitivity_bounds() for "
+        "IPW-based sensitivity bounds, or confounding_bias_report() for a "
+        "qualitative assessment of confounding magnitude."
     )
 
 

@@ -377,7 +377,7 @@ class CausalPricingModel:
         self,
         df: "pd.DataFrame | pl.DataFrame",
         segment_col: str,
-        min_segment_size: int = 200,
+        min_segment_size: int = 2000,
     ) -> pd.DataFrame:
         """
         Estimate average treatment effects separately within each segment.
@@ -403,6 +403,10 @@ class CausalPricingModel:
         min_segment_size : int
             Minimum number of observations for a segment to be estimated.
             Segments smaller than this are marked as insufficient_data.
+            Default is 2,000. CatBoost at depth 6 with 5-fold CV trains on
+            ~160 observations per fold for a 1,000-obs segment — insufficient
+            to avoid overfitting. Set lower only for exploratory work with
+            reduced tree depth.
 
         Returns
         -------

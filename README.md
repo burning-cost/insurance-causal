@@ -17,7 +17,7 @@ Double Machine Learning (DML), introduced by Chernozhukov et al. (2018), solves 
 
 `insurance-causal` wraps [DoubleML](https://docs.doubleml.org/) with an interface designed for pricing actuaries. You specify the treatment (price change, channel flag, telematics score) and the confounders (rating factors), and it gives you a causal estimate with a confidence interval.
 
-**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (FCA-compliant renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`.
+**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`.
 
 ---
 
@@ -71,7 +71,9 @@ curve = dr.predict(d_grid=np.linspace(200, 800, 20))
 
 Estimands: Average Marginal Effect (AME), dose-response curve, policy shift counterfactual, selection-corrected elasticity.
 
-### `insurance_causal.elasticity` — FCA PS21/5 compliant renewal pricing optimisation
+Note: `PremiumElasticity` estimates an Average Marginal Effect under a nonparametric heterogeneous-effects model. This is a different estimand from the constant treatment effect (theta_0) in the partially linear regression model described in the maths section below. The PLR model assumes homogeneous effects; AME relaxes this by integrating heterogeneous marginal effects over the covariate distribution.
+
+### `insurance_causal.elasticity` — renewal pricing optimisation with ENBP constraint
 
 For UK motor/home renewal teams. Estimates heterogeneous treatment effects (GATE by segment), constructs an elasticity surface over the book, and optimises renewal pricing subject to an ENBP (Expected Net Book Premium) constraint.
 
@@ -90,6 +92,8 @@ print(f"ATE: {ate:.3f}  95% CI: [{lb:.3f}, {ub:.3f}]")
 opt = RenewalPricingOptimiser(est)
 result = opt.optimise(df, budget_constraint_pct=0.0)  # ENBP-neutral
 ```
+
+The optimiser is designed to produce pricing structures consistent with the FCA PS21/5 ENBP constraint structure. Regulatory compliance with PS21/5 requires governance, audit trail, Board sign-off, and ongoing monitoring that goes beyond any algorithm alone. Do not treat this output as a substitute for those obligations.
 
 ---
 
@@ -142,9 +146,9 @@ import polars as pl
 from insurance_causal import CausalPricingModel
 from insurance_causal.treatments import PriceChangeTreatment
 
-# Synthetic UK motor renewal portfolio — 1,000 policies
+# Synthetic UK motor renewal portfolio — 15,000 policies
 rng = np.random.default_rng(42)
-n = 1_000
+n = 15_000
 vehicle_age  = rng.integers(1, 15, n)
 driver_age   = rng.integers(25, 75, n)
 ncb_years    = rng.integers(0, 9, n)
@@ -299,6 +303,8 @@ cate = model.cate_by_segment(df, segment_col="age_band")
 # Returns DataFrame: segment, cate_estimate, ci_lower, ci_upper, std_error, p_value, n_obs
 ```
 
+**Minimum segment size warning**: the default `min_segment_size` is 2,000 observations. Segments below this threshold are marked `insufficient_data` and skipped. CatBoost at depth 6 will overfit in segments with fewer than roughly 2,000 observations (160 training obs per fold at 5-fold CV), producing unreliable point estimates and confidence intervals that are too narrow. If you must analyse small segments, reduce tree depth, use `cv_folds=3`, and treat the output as exploratory only.
+
 Or by decile of a risk score:
 
 ```python
@@ -325,11 +331,13 @@ report = sensitivity_analysis(
 print(report[["gamma", "conclusion_holds", "ci_lower", "ci_upper"]])
 ```
 
-The Rosenbaum parameter gamma is the odds ratio of treatment for two units
-with identical observed confounders. Gamma = 1 is no unobserved confounding; Gamma = 2
+The sensitivity parameter gamma represents the odds ratio of treatment for two units
+with identical observed confounders. Gamma = 1 is no unobserved confounding; gamma = 2
 means an unobserved factor doubles the treatment odds for some units. If
-`conclusion_holds` becomes False at Gamma = 1.25, the result is fragile. If it
-holds to Gamma = 2.0, the result is robust.
+`conclusion_holds` becomes False at gamma = 1.25, the result is fragile. If it
+holds to gamma = 2.0, the result is robust.
+
+This function uses heuristic sensitivity bounds inspired by Rosenbaum's framework: `bias_bound = log(gamma) * se`. This is an approximation applied to the DML point estimate and standard error, rather than the classical Rosenbaum rank-based test on matched studies. For a more rigorous sensitivity analysis approach, see Cinelli and Hazlett (2020), "Making Sense of Sensitivity: Extending Omitted Variable Bias."
 
 ---
 
@@ -360,8 +368,12 @@ models are regularised ML estimators.
 The result: theta_hat is root-n-consistent and asymptotically normal, with a valid 95% CI.
 This is not possible with naive ML plug-in estimators.
 
-The `autodml` subpackage extends this to continuous treatments without a GPS assumption,
-using the Riesz representer minimax approach (Chernozhukov et al. 2022).
+This PLR model assumes a constant treatment effect theta_0. The `autodml` subpackage
+and `PremiumElasticity` estimator go further, estimating heterogeneous effects and
+Average Marginal Effects using the Riesz representer minimax approach
+(Chernozhukov et al. 2022). These are different estimands: PLR gives a single
+number theta_0; AME integrates heterogeneous marginal effects over the covariate
+distribution. For most pricing applications the AME is the more useful quantity.
 
 ---
 
@@ -436,6 +448,10 @@ work.
 
 5. Chernozhukov, V. et al. (2024). "Applied Causal Inference Powered by ML and AI."
    [causalml-book.org](https://causalml-book.org/)
+
+6. Cinelli, C. and Hazlett, C. (2020). "Making Sense of Sensitivity: Extending
+   Omitted Variable Bias." *Journal of the Royal Statistical Society: Series B*,
+   82(1): 39-67.
 
 ---
 
