@@ -3,6 +3,8 @@
 ![Tests](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PyPI](https://img.shields.io/pypi/v/insurance-causal)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/insurance-causal/blob/main/notebooks/quickstart.ipynb)
 
+> 💬 Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal/discussions). Found it useful? A ⭐ helps others find it.
+
 Causal inference for insurance pricing, built on Double Machine Learning.
 
 Merged from: `insurance-causal` (core DML), `insurance-autodml` (Riesz representer continuous treatment), and `insurance-elasticity` (FCA renewal pricing optimisation).
