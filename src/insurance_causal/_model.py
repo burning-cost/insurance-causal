@@ -141,6 +141,18 @@ class CausalPricingModel:
     nuisance_model : {"catboost"}
         Nuisance model to use for E[Y|X] and E[D|X]. Currently only CatBoost
         is supported. v0.2 will add arbitrary sklearn estimators.
+    nuisance_params : dict | None
+        CatBoost parameter overrides for the nuisance models. Use this to
+        tune the nuisance model capacity manually. When None (default), the
+        library selects parameters automatically based on sample size — see
+        _utils.adaptive_catboost_params for the exact schedule.
+
+        Example — explicitly set low capacity for a 3k sample::
+
+            model = CausalPricingModel(..., nuisance_params={
+                "iterations": 150, "depth": 4, "learning_rate": 0.1
+            })
+
     cv_folds : int
         Number of cross-fitting folds. Default: 5. More folds give more stable
         estimates at the cost of fitting time. 5 is the standard choice.
@@ -171,6 +183,7 @@ class CausalPricingModel:
         confounders: list[str],
         exposure_col: str | None = None,
         nuisance_model: Literal["catboost"] = "catboost",
+        nuisance_params: dict | None = None,
         cv_folds: int = 5,
         random_state: int = 42,
         _segment_iterations: int | None = None,
@@ -181,6 +194,7 @@ class CausalPricingModel:
         self.confounders = confounders
         self.exposure_col = exposure_col
         self.nuisance_model = nuisance_model
+        self.nuisance_params = nuisance_params
         self.cv_folds = cv_folds
         self.random_state = random_state
         self._segment_iterations = _segment_iterations
@@ -300,21 +314,40 @@ class CausalPricingModel:
         For binary treatments (propensity model), we use CatBoostClassifier.
         For continuous treatments and all outcomes, we use CatBoostRegressor.
 
-        When ``_segment_iterations`` is set (via ``cate_by_segment`` for small
-        segments), iterations are capped to prevent overfitting on small data.
-        """
-        ml_y = build_catboost_regressor(self.random_state)
-        if isinstance(self.treatment, BinaryTreatment):
-            ml_d = build_catboost_classifier(self.random_state)
-        else:
-            ml_d = build_catboost_regressor(self.random_state)
+        Passes ``self._n_obs`` to the builder so that adaptive regularisation
+        is applied based on the actual sample size. This is the fix for the
+        documented over-partialling issue at n <= 10k: CatBoost's default
+        capacity (500 iterations, depth 6) was absorbing treatment signal into
+        the nuisance model residuals, leaving the final DML regression with
+        near-zero treatment variance to identify from.
 
+        When ``_segment_iterations`` is set (via ``cate_by_segment`` for small
+        segments), the iteration cap is applied via override_params so the
+        adaptive depth and regularisation remain intact.
+        """
+        # Build override dict: user-supplied nuisance_params first,
+        # then _segment_iterations override (internal, always wins on iterations).
+        override: dict = dict(self.nuisance_params) if self.nuisance_params else {}
         if self._segment_iterations is not None:
-            # Clone with reduced iterations for small segment sub-models
-            ml_y = ml_y.copy()
-            ml_y.set_params(iterations=self._segment_iterations)
-            ml_d = ml_d.copy()
-            ml_d.set_params(iterations=self._segment_iterations)
+            override["iterations"] = self._segment_iterations
+
+        ml_y = build_catboost_regressor(
+            self.random_state,
+            n_samples=self._n_obs if self._n_obs > 0 else None,
+            override_params=override if override else None,
+        )
+        if isinstance(self.treatment, BinaryTreatment):
+            ml_d = build_catboost_classifier(
+                self.random_state,
+                n_samples=self._n_obs if self._n_obs > 0 else None,
+                override_params=override if override else None,
+            )
+        else:
+            ml_d = build_catboost_regressor(
+                self.random_state,
+                n_samples=self._n_obs if self._n_obs > 0 else None,
+                override_params=override if override else None,
+            )
 
         return ml_y, ml_d
 

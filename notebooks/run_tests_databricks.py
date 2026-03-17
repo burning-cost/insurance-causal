@@ -1,35 +1,61 @@
 """
 Run insurance-causal tests on Databricks.
 Copies source and tests to local disk first to avoid workspace filesystem limitations.
+
+Strategy: use a subprocess to install all dependencies and run pytest in a
+fresh Python process. This avoids issues with cached/pre-loaded modules in the
+Databricks notebook kernel (e.g. old numpy/scipy that conflict with newer versions).
 """
 import os
 import sys
 import subprocess
 import shutil
 
-def pip_install(*pkgs, check=True):
+# ── Step 1: Install dependencies via subprocess (fresh Python process) ───────
+
+install_script = """
+import subprocess, sys
+
+def pip(*pkgs, upgrade=False):
+    flags = ['--quiet']
+    if upgrade:
+        flags.append('--upgrade')
     r = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet"] + list(pkgs),
+        [sys.executable, '-m', 'pip', 'install'] + flags + list(pkgs),
         capture_output=True, text=True
     )
     if r.returncode != 0:
-        print("pip stderr:", r.stderr[-500:])
-        if check:
-            raise RuntimeError(f"pip install failed: {pkgs}")
+        print('pip stderr:', r.stderr[-500:])
     return r.returncode == 0
 
-pip_install(
-    "doubleml", "catboost", "polars", "pyarrow", "scikit-learn",
-    "scipy", "numpy", "joblib", "matplotlib", "jinja2",
-    "pytest", "pytest-cov"
+# Install numpy first (needs >=1.25 for numpy.exceptions)
+pip('numpy>=1.25', upgrade=True)
+pip('scipy>=1.11', upgrade=True)
+pip(
+    'doubleml', 'catboost', 'polars', 'pyarrow', 'scikit-learn>=1.3',
+    'joblib', 'matplotlib', 'jinja2', 'pytest', 'pytest-cov',
+    upgrade=False
 )
-print("Core deps installed.")
 
-econml_ok = pip_install("econml", check=False)
-if not econml_ok:
-    print("WARNING: econml unavailable, skipping test_fit and test_optimise")
+econml_ok = pip('econml')
+print('econml_ok:', econml_ok)
 
-# Copy to local disk (workspace NFS has restrictions with pytest)
+import numpy as np
+import scipy
+print(f'numpy {np.__version__}, scipy {scipy.__version__}')
+"""
+
+r = subprocess.run([sys.executable, "-c", install_script], capture_output=True, text=True)
+print(r.stdout)
+if r.returncode != 0:
+    print("Install stderr:", r.stderr[-2000:])
+    raise RuntimeError("Dependency installation failed")
+
+# Check if econml installed
+econml_ok = "econml_ok: True" in r.stdout
+
+# ── Step 2: Copy source and tests to local disk ───────────────────────────────
+
 local_root = "/tmp/insurance-causal"
 if os.path.exists(local_root):
     shutil.rmtree(local_root)
@@ -39,23 +65,16 @@ shutil.copytree("/Workspace/insurance-causal/tests", f"{local_root}/tests")
 print(f"Copied to {local_root}")
 
 src_path = f"{local_root}/src"
-sys.path.insert(0, src_path)
 
-import insurance_causal
-print(f"insurance_causal {insurance_causal.__version__} loaded")
+# ── Step 3: Run pytest in subprocess ─────────────────────────────────────────
 
-from insurance_causal.autodml import PremiumElasticity, ForestRiesz, SyntheticContinuousDGP
-print("AutoDML imports OK")
-from insurance_causal.elasticity import ElasticitySurface, make_renewal_data
-print("Elasticity imports OK")
-
-# Build pytest args
 test_args = [
     sys.executable, "-m", "pytest",
     f"{local_root}/tests/",
-    "-v", "--tb=short",
+    "-v", "--tb=long",  # long tracebacks so we can see errors
 ]
 if not econml_ok:
+    print("WARNING: econml unavailable, skipping test_fit and test_optimise")
     test_args += [
         f"--ignore={local_root}/tests/elasticity/test_fit.py",
         f"--ignore={local_root}/tests/elasticity/test_optimise.py",
@@ -67,15 +86,18 @@ env["PYTHONPATH"] = src_path + ":" + env.get("PYTHONPATH", "")
 result = subprocess.run(test_args, capture_output=True, text=True, env=env)
 output = result.stdout + result.stderr
 print("=== TEST RESULTS ===")
-print(output[-10000:] if len(output) > 10000 else output)
+print(output[-15000:] if len(output) > 15000 else output)
 print(f"Return code: {result.returncode}")
 
 lines = output.strip().split("\n")
 summary = next((l for l in reversed(lines) if "passed" in l or "failed" in l or "error" in l), "no summary")
 status = "PASSED" if result.returncode == 0 else "FAILED"
-exit_msg = f"{status}: {summary}"
+
+if result.returncode != 0:
+    # Raise exception so the error trace is visible in the Databricks run output
+    raise RuntimeError(f"Tests FAILED: {summary}\n\nLast 2000 chars:\n{output[-2000:]}")
 
 try:
-    dbutils.notebook.exit(exit_msg)
+    dbutils.notebook.exit(f"PASSED: {summary}")
 except NameError:
-    sys.exit(result.returncode)
+    pass

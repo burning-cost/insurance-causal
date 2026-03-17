@@ -111,3 +111,84 @@ class TestCheckOverlap:
         stats = check_overlap(values)
         assert stats["min"] <= stats["p5"] <= stats["p25"]
         assert stats["p25"] <= stats["p75"] <= stats["p95"] <= stats["max"]
+
+
+class TestAdaptiveCatboostParams:
+    """Tests for sample-size-adaptive nuisance model parameters (v0.3.0)."""
+
+    def test_very_small_n_returns_low_capacity(self):
+        """n < 2000 should give fewest iterations and shallowest depth."""
+        from insurance_causal._utils import adaptive_catboost_params
+        params = adaptive_catboost_params(500)
+        assert params["iterations"] <= 150
+        assert params["depth"] <= 5
+        assert params["l2_leaf_reg"] >= 5.0
+
+    def test_large_n_returns_full_capacity(self):
+        """n >= 50000 should give maximum iterations."""
+        from insurance_causal._utils import adaptive_catboost_params
+        params = adaptive_catboost_params(100_000)
+        assert params["iterations"] == 500
+        assert params["depth"] == 6
+
+    def test_capacity_increases_with_n(self):
+        """Iterations should not decrease as n increases."""
+        from insurance_causal._utils import adaptive_catboost_params
+        sizes = [500, 2000, 5000, 10000, 50000, 100000]
+        iters = [adaptive_catboost_params(n)["iterations"] for n in sizes]
+        for i in range(len(iters) - 1):
+            assert iters[i] <= iters[i + 1], (
+                f"iterations should be non-decreasing: n={sizes[i]} gave {iters[i]}, "
+                f"n={sizes[i+1]} gave {iters[i+1]}"
+            )
+
+    def test_returns_dict_with_required_keys(self):
+        """Output should contain the keys needed by CatBoost."""
+        from insurance_causal._utils import adaptive_catboost_params
+        required = {"iterations", "learning_rate", "depth", "l2_leaf_reg"}
+        for n in [100, 1000, 5000, 20000, 100000]:
+            params = adaptive_catboost_params(n)
+            missing = required - set(params.keys())
+            assert not missing, f"n={n}: missing keys {missing}"
+
+    def test_l2_regularisation_decreases_with_n(self):
+        """l2_leaf_reg should be higher (more regularisation) at small n."""
+        from insurance_causal._utils import adaptive_catboost_params
+        small = adaptive_catboost_params(500)
+        large = adaptive_catboost_params(100_000)
+        assert small["l2_leaf_reg"] >= large["l2_leaf_reg"], (
+            "small samples should have more L2 regularisation than large samples"
+        )
+
+    def test_build_catboost_regressor_no_n_samples(self):
+        """Without n_samples, falls back to backward-compatible defaults."""
+        from insurance_causal._utils import build_catboost_regressor
+        model = build_catboost_regressor(random_state=42)
+        params = model.get_params()
+        assert params["iterations"] == 500
+        assert params["depth"] == 6
+
+    def test_build_catboost_regressor_with_small_n(self):
+        """With n_samples=2000, uses reduced capacity."""
+        from insurance_causal._utils import build_catboost_regressor
+        model = build_catboost_regressor(random_state=42, n_samples=2000)
+        params = model.get_params()
+        assert params["iterations"] < 500
+        assert params["depth"] <= 5
+
+    def test_build_catboost_regressor_override(self):
+        """override_params takes precedence over adaptive defaults."""
+        from insurance_causal._utils import build_catboost_regressor
+        model = build_catboost_regressor(
+            random_state=42, n_samples=2000,
+            override_params={"iterations": 999}
+        )
+        params = model.get_params()
+        assert params["iterations"] == 999
+
+    def test_build_catboost_classifier_with_small_n(self):
+        """Classifier also uses adaptive params."""
+        from insurance_causal._utils import build_catboost_classifier
+        model = build_catboost_classifier(random_state=0, n_samples=3000)
+        params = model.get_params()
+        assert params["iterations"] < 500

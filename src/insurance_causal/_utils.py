@@ -46,46 +46,194 @@ def to_pandas(df: "pd.DataFrame | pl.DataFrame") -> pd.DataFrame:
     )
 
 
-def build_catboost_regressor(random_state: int = 42) -> object:
+def adaptive_catboost_params(n_samples: int) -> dict:
+    """
+    Compute sample-size-adaptive CatBoost hyperparameters for DML nuisance models.
+
+    The problem this solves: CatBoost at 500 iterations / depth 6 is powerful
+    enough that on small samples (n ≤ 10k) it absorbs treatment signal into the
+    nuisance residuals — "over-partialling". The treatment residual D̃ = D - Ê[D|X]
+    ends up near-zero variance, leaving the final DML regression step with almost
+    nothing to identify θ from. This produces biased, imprecise ATE estimates.
+
+    The fix is standard regularisation: reduce model capacity (iterations, depth)
+    as n shrinks. We also apply L2 leaf regularisation and subsampling to prevent
+    individual trees from memorising the training fold.
+
+    The thresholds are chosen based on the degrees of freedom available per fold
+    in 5-fold cross-fitting:
+        - n < 2,000  → ~1,600 training obs per fold, very small
+        - 2,000–10,000 → 1,600–8,000 training obs, typical insurance small-book
+        - 10,000–50,000 → standard medium insurance book
+        - ≥ 50,000 → large book, full CatBoost capacity appropriate
+
+    Parameters
+    ----------
+    n_samples : int
+        Total number of observations in the training set.
+
+    Returns
+    -------
+    dict
+        CatBoost kwargs suitable for CatBoostRegressor or CatBoostClassifier.
+        Always excludes loss_function and random_seed (caller's responsibility).
+    """
+    if n_samples < 2_000:
+        # Very small: shallow trees, few iterations, aggressive regularisation.
+        # At this size, CatBoost is acting more like a regularised linear model.
+        return {
+            "iterations": 100,
+            "learning_rate": 0.10,
+            "depth": 4,
+            "l2_leaf_reg": 10.0,
+            "subsample": 0.8,
+            "colsample_bylevel": 0.8,
+            "min_data_in_leaf": 5,
+        }
+    elif n_samples < 5_000:
+        # Small: moderate regularisation. Typical for single-product analysis on
+        # a small book or a sub-portfolio (e.g., young drivers only).
+        return {
+            "iterations": 150,
+            "learning_rate": 0.08,
+            "depth": 5,
+            "l2_leaf_reg": 5.0,
+            "subsample": 0.8,
+            "colsample_bylevel": 0.9,
+            "min_data_in_leaf": 5,
+        }
+    elif n_samples < 10_000:
+        # Small-medium: light regularisation. This is the sweet spot for most
+        # UK pricing teams running causal analysis on a quarterly cohort.
+        return {
+            "iterations": 200,
+            "learning_rate": 0.07,
+            "depth": 5,
+            "l2_leaf_reg": 3.0,
+            "subsample": 0.9,
+            "colsample_bylevel": 1.0,
+            "min_data_in_leaf": 5,
+        }
+    elif n_samples < 50_000:
+        # Medium: standard settings with mild regularisation.
+        return {
+            "iterations": 350,
+            "learning_rate": 0.05,
+            "depth": 6,
+            "l2_leaf_reg": 3.0,
+            "subsample": 1.0,
+            "colsample_bylevel": 1.0,
+            "min_data_in_leaf": 1,
+        }
+    else:
+        # Large: full CatBoost capacity. The original default settings.
+        return {
+            "iterations": 500,
+            "learning_rate": 0.05,
+            "depth": 6,
+            "l2_leaf_reg": 3.0,
+            "subsample": 1.0,
+            "colsample_bylevel": 1.0,
+            "min_data_in_leaf": 1,
+        }
+
+
+def build_catboost_regressor(
+    random_state: int = 42,
+    n_samples: int | None = None,
+    override_params: dict | None = None,
+) -> object:
     """
     Build a CatBoost regressor suitable for DML nuisance estimation.
 
-    These settings prioritise bias reduction over speed:
-    - Many iterations with low learning rate
-    - Moderate depth to capture nonlinear confounding without overfitting
-    - verbose=0 to suppress training output
+    When ``n_samples`` is provided, applies sample-size-adaptive regularisation
+    to prevent over-partialling on small datasets. This is the key fix for the
+    documented issue where DML underperformed naive GLM at n ≤ 10k.
+
+    Parameters
+    ----------
+    random_state : int
+        Random seed for CatBoost.
+    n_samples : int | None
+        Number of training observations. If provided, uses adaptive params
+        from ``adaptive_catboost_params()``. If None, uses the original
+        large-sample defaults (500 iterations, depth 6) — preserved for
+        backward compatibility when callers do not pass sample size.
+    override_params : dict | None
+        Any CatBoost params that explicitly override the adaptive defaults.
+        Useful for power users who want to tune specific settings.
 
     Returns a fitted-ready CatBoostRegressor with sklearn API.
     """
     from catboost import CatBoostRegressor
+
+    if n_samples is not None:
+        params = adaptive_catboost_params(n_samples)
+    else:
+        # Backward-compatible defaults: matches pre-0.3.0 behaviour.
+        # These are appropriate for large samples (n ≥ 50k).
+        params = {
+            "iterations": 500,
+            "learning_rate": 0.05,
+            "depth": 6,
+            "l2_leaf_reg": 3.0,
+        }
+
+    if override_params:
+        params.update(override_params)
+
     return CatBoostRegressor(
-        iterations=500,
-        learning_rate=0.05,
-        depth=6,
         loss_function="RMSE",
         random_seed=random_state,
         verbose=0,
         allow_writing_files=False,
+        **params,
     )
 
 
-def build_catboost_classifier(random_state: int = 42) -> object:
+def build_catboost_classifier(
+    random_state: int = 42,
+    n_samples: int | None = None,
+    override_params: dict | None = None,
+) -> object:
     """
     Build a CatBoost classifier for binary nuisance models (propensity).
 
     Used when the treatment is binary (BinaryTreatment). The propensity
     model E[D|X] is a classification problem, and CatBoostClassifier's
     Logloss objective is correct for this.
+
+    Parameters
+    ----------
+    random_state : int
+        Random seed for CatBoost.
+    n_samples : int | None
+        Number of training observations. Adaptive regularisation applied
+        when provided — same thresholds as ``build_catboost_regressor``.
+    override_params : dict | None
+        Any CatBoost params that explicitly override the adaptive defaults.
     """
     from catboost import CatBoostClassifier
+
+    if n_samples is not None:
+        params = adaptive_catboost_params(n_samples)
+    else:
+        params = {
+            "iterations": 500,
+            "learning_rate": 0.05,
+            "depth": 6,
+            "l2_leaf_reg": 3.0,
+        }
+
+    if override_params:
+        params.update(override_params)
+
     return CatBoostClassifier(
-        iterations=500,
-        learning_rate=0.05,
-        depth=6,
         loss_function="Logloss",
         random_seed=random_state,
         verbose=0,
         allow_writing_files=False,
+        **params,
     )
 
 
