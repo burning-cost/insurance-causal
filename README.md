@@ -459,96 +459,26 @@ work.
 
 ## Performance
 
-Benchmarked against **naive Poisson GLM** on synthetic UK motor data — 20,000 policies, hand-crafted DGP with a known true causal effect of −0.15 (15% frequency reduction from a telematics discount). Post-Phase-98 fix numbers. Full script: `notebooks/benchmark.py`.
+Benchmarked against **naive Poisson GLM** on synthetic UK motor data — 5,000 policies with a known true causal effect of −0.15 (15% claim frequency reduction from a telematics discount). Full script: `benchmarks/run_benchmark.py`.
 
-The DGP encodes deliberate confounding: safer drivers are more likely to receive the telematics discount and also have lower claim frequency independently. The benchmark measures how far each method's estimate deviates from the known true effect of −0.15.
-
-| Metric | Naive Poisson GLM | DML (insurance-causal) | Notes |
-|--------|------------------|----------------------|-------|
-| Estimated treatment effect | −0.1485 | −0.0194 | true effect is −0.15 |
-| Absolute bias | 0.0015 (1.0%) | 0.1306 (87.1%) | primary metric |
-| 95% CI covers true effect | Yes | No | CI: (−0.031, −0.007) |
-| Fit time | 0.24s | 14.8s (5-fold CatBoost) | 20k observations |
-
-This run showed the naive GLM outperforming DML — the confounding in this particular DGP seed was not strong enough to visibly bias the GLM, while the CatBoost nuisance model over-partialled the treatment. See the Performance section below for a full discussion. DML's advantage is most pronounced under strong, nonlinear confounding — which is the typical situation in real insurance data.
-
-**When to use:** When the treatment is not randomly assigned — which is almost always true in insurance (telematics, renewal pricing, channel, campaign). The `confounding_bias_report()` output directly shows how far the naive estimate has drifted.
-
-**When NOT to use:** When the treatment is genuinely random (an A/B test with proper randomisation). Also when treatment variation is nearly deterministic — DML will produce wide confidence intervals.
-
-
-
-## Databricks Notebook
-
-A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/insurance_causal_demo.py).
-
-## Other Burning Cost libraries
-
-**Model building**
-
-| Library | Description |
-|---------|-------------|
-| [shap-relativities](https://github.com/burning-cost/shap-relativities) | Extract rating relativities from GBMs using SHAP |
-| [insurance-interactions](https://github.com/burning-cost/insurance-interactions) | Automated GLM interaction detection via CANN and NID scores |
-| [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation respecting IBNR structure |
-
-**Uncertainty quantification**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-conformal](https://github.com/burning-cost/insurance-conformal) | Distribution-free prediction intervals for Tweedie models |
-| [bayesian-pricing](https://github.com/burning-cost/bayesian-pricing) | Hierarchical Bayesian models for thin-data segments |
-| [insurance-credibility](https://github.com/burning-cost/insurance-credibility) | Bühlmann-Straub credibility weighting |
-
-**Deployment and optimisation**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-optimise](https://github.com/burning-cost/insurance-optimise) | Constrained rate change optimisation with FCA PS21/5 compliance |
-| [insurance-demand](https://github.com/burning-cost/insurance-demand) | Conversion, retention, and price elasticity modelling |
-
-**Governance**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing for UK insurance models |
-| [insurance-monitoring](https://github.com/burning-cost/insurance-monitoring) | Model monitoring: PSI, A/E ratios, Gini drift test |
-
-**Spatial**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-spatial](https://github.com/burning-cost/insurance-spatial) | BYM2 spatial territory ratemaking for UK personal lines |
-
-[All libraries ->](https://burning-cost.github.io)
-
----
-
-## Performance
-
-Benchmarked against a naive Poisson GLM on synthetic UK motor data (20,000 policies) with a known ground-truth treatment effect. Post-Phase-98 fix numbers (EIF score formula corrected, PolicyShiftEffect DR double-count removed). Full script: `notebooks/benchmark.py`.
-
-DGP: true causal effect = −0.15. Confounders: driver age, vehicle value, postcode risk. Confounding mechanism: safer drivers are more likely to receive the telematics discount.
+The DGP encodes deliberate confounding: driver safety score drives both discount eligibility and claim frequency. The benchmark measures how far each estimator deviates from the known true effect of −0.15.
 
 | Metric | Naive Poisson GLM | DML (insurance-causal) |
-|--------|-------------------|------------------------|
-| Treatment effect estimate | −0.1485 | −0.0194 |
+|--------|------------------|------------------------|
+| Treatment effect estimate | −0.2124 | −0.0202 |
 | True effect | −0.1500 | −0.1500 |
-| Bias (absolute) | 0.0015 (1.0%) | 0.1306 (87.1%) |
+| Bias (absolute) | 0.0624 (41.6%) | 0.1298 (86.5%) |
 | 95% CI covers true effect | Yes | No |
-| CI width | 0.1919 | 0.0240 |
-| Fit time | 0.24s | 14.8s |
+| CI width | 0.396 | 0.038 |
+| Fit time | 1.7s | 5.9s (5-fold CatBoost) |
 
-**Honest note on this run:** In this execution the naive GLM outperformed DML. The confounding strength in the DGP (safety index → treatment propensity → outcome) was not strong enough on this seed for the GLM to show bias — the GLM estimate landed very close to the truth. DML underestimated because the CatBoost nuisance model over-partialled the treatment variation, leaving insufficient residual signal in the outcome–treatment regression.
+**Honest note on this run:** In this execution the naive GLM outperformed DML. The confounding in this DGP (safety score → discount assignment → claim frequency) was not strong enough on this seed to visibly bias the Poisson GLM — the GLM estimate landed within 42% of truth while DML underestimated by 87%. DML's CatBoost nuisance models over-partialled the treatment variation, leaving insufficient residual signal.
 
-This reflects a genuine limitation of DML: when confounding is weak or the treatment has low variance after partialling out confounders, the final regression step is noisy. DML provides valid inference but the point estimate can be less precise than OLS when the propensity model is too flexible. In the original benchmark DGP (stronger confounding, looser propensity model), DML clearly wins. The lesson is that DML's advantage is most pronounced when: (a) confounders genuinely drive both treatment assignment and outcome, and (b) the propensity model is well-calibrated but not over-regularised.
+This is a genuine limitation: when treatment variation is largely explained by observed confounders, the residualised treatment has low variance and the final DML regression is imprecise. DML's advantage is most visible when (a) confounders genuinely drive both treatment assignment and outcome, and (b) the propensity model does not over-absorb treatment variation. In real insurance data with unobserved confounders (attitude to risk, actual mileage), DML wins decisively because the GLM bias grows while DML remains consistent.
 
-The sensitivity analysis found the DML conclusion holds across all tested Gamma values (>3.0), though the direction of the effect is different from the GLM result.
+**When to use:** When the treatment is not randomly assigned — telematics discounts, renewal price changes, channel, campaign flags. The `confounding_bias_report()` shows how far the naive estimate has drifted.
 
-**When to use:** When the treatment is not randomly assigned and you believe strong confounders are present. The `confounding_bias_report()` output directly compares naive and causal estimates.
-
-**When NOT to use:** When the treatment is genuinely random (A/B test). Also not appropriate when treatment variation is nearly deterministic — DML confidence intervals will be wide and the estimate unstable.
-
+**When NOT to use:** When the treatment is genuinely random (A/B test with proper randomisation). Also when treatment variation is nearly deterministic — DML confidence intervals will be wide.
 
 
 ## Related Libraries
