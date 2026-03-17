@@ -253,6 +253,14 @@ class CausalPricingModel:
         _treatment_col = "__d__"
 
         df_dml = df_pd[self.confounders].copy()
+        # Encode string/object columns as integer codes so DoubleML's
+        # numpy conversion does not choke on categorical strings.
+        self._cat_encodings_: dict = {}
+        for col in df_dml.columns:
+            if df_dml[col].dtype == object or str(df_dml[col].dtype) == 'category':
+                codes, uniques = pd.factorize(df_dml[col])
+                self._cat_encodings_[col] = {v: i for i, v in enumerate(uniques)}
+                df_dml[col] = codes.astype(float)
         df_dml[_treatment_col] = treatment_transformed.values
         df_dml[_outcome_col] = outcome_transformed
 
