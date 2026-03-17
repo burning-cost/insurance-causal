@@ -12,11 +12,21 @@ backends:
 All nuisance models are wrapped to expose a unified API:
     fit(D, X, Y, sample_weight) -> self
     predict(D, X) -> array of shape (n,)
+
+Adaptive regularisation
+-----------------------
+CatBoost's default hyperparameters (depth=6, l2_leaf_reg=3) overfit
+severely at small sample sizes (n ≤ 10,000), causing the nuisance model
+to absorb too much treatment variation — the "over-partialling" problem.
+The function ``adaptive_catboost_params()`` selects regularisation tier
+based on sample size.  It is called automatically in ``build_nuisance_model``
+when backend="catboost" and no explicit ``nuisance_params`` override is
+provided.
 """
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, clone
@@ -25,6 +35,89 @@ from sklearn.linear_model import Ridge, PoissonRegressor, GammaRegressor
 from sklearn.preprocessing import StandardScaler
 
 from insurance_causal.autodml._types import OutcomeFamily
+
+
+# ---------------------------------------------------------------------------
+# Adaptive CatBoost regularisation tiers
+# ---------------------------------------------------------------------------
+
+# Each tier is a dict of CatBoost constructor kwargs.
+# Tiers are listed from smallest n (most regularisation) to largest (least).
+_CATBOOST_TIERS: list[tuple[int, dict]] = [
+    # (min_n, params) — params apply when n < next tier's min_n
+    (50_000, {
+        # n >= 50k: default CatBoost params — full model capacity
+        "depth": 6,
+        "l2_leaf_reg": 3,
+        "learning_rate": 0.05,
+        "iterations": 300,
+    }),
+    (10_000, {
+        # 10k <= n < 50k: moderate regularisation
+        "depth": 4,
+        "l2_leaf_reg": 5,
+        "learning_rate": 0.05,
+        "iterations": 300,
+    }),
+    (5_000, {
+        # 5k <= n < 10k: stronger regularisation
+        "depth": 3,
+        "l2_leaf_reg": 10,
+        "learning_rate": 0.03,
+        "iterations": 300,
+    }),
+    (1_000, {
+        # 1k <= n < 5k: heavy regularisation
+        "depth": 2,
+        "l2_leaf_reg": 20,
+        "learning_rate": 0.01,
+        "iterations": 200,
+    }),
+    (0, {
+        # n < 1k: very heavy regularisation
+        "depth": 2,
+        "l2_leaf_reg": 50,
+        "learning_rate": 0.005,
+        "iterations": 100,
+    }),
+]
+
+
+def adaptive_catboost_params(n: int) -> dict:
+    """
+    Return CatBoost hyperparameters appropriate for a dataset of size ``n``.
+
+    The default CatBoost settings (depth=6, l2_leaf_reg=3) overfit at small
+    sample sizes during DML cross-fitting, causing over-partialling: the
+    nuisance model absorbs the treatment variation it should leave for the
+    second stage.  Stronger regularisation at small n keeps the nuisance
+    models from memorising the training fold.
+
+    Parameters
+    ----------
+    n : int
+        Total sample size (number of rows in the full dataset, before
+        cross-fitting splits).
+
+    Returns
+    -------
+    params : dict
+        CatBoost kwargs (depth, l2_leaf_reg, learning_rate, iterations).
+
+    Examples
+    --------
+    >>> adaptive_catboost_params(500)
+    {'depth': 2, 'l2_leaf_reg': 50, 'learning_rate': 0.005, 'iterations': 100}
+    >>> adaptive_catboost_params(20_000)
+    {'depth': 4, 'l2_leaf_reg': 5, 'learning_rate': 0.05, 'iterations': 300}
+    >>> adaptive_catboost_params(100_000)
+    {'depth': 6, 'l2_leaf_reg': 3, 'learning_rate': 0.05, 'iterations': 300}
+    """
+    for min_n, params in _CATBOOST_TIERS:
+        if n >= min_n:
+            return dict(params)
+    # Fallback — should not be reached since the last tier has min_n=0
+    return dict(_CATBOOST_TIERS[-1][1])
 
 
 class _NuisanceWrapper:
@@ -193,6 +286,11 @@ class CatBoostNuisance(_NuisanceWrapper):
         Tree depth.
     learning_rate : float
         Boosting learning rate.
+    l2_leaf_reg : float
+        L2 regularisation coefficient on leaf weights.  Higher values
+        prevent overfitting on small samples.  The default (3) is
+        CatBoost's factory default.  Use ``adaptive_catboost_params()`` to
+        select an appropriate value based on sample size.
     random_state : int or None
         Random seed.
     """
@@ -203,12 +301,14 @@ class CatBoostNuisance(_NuisanceWrapper):
         iterations: int = 300,
         depth: int = 6,
         learning_rate: float = 0.05,
+        l2_leaf_reg: float = 3.0,
         random_state: Optional[int] = None,
     ) -> None:
         self.outcome_family = outcome_family
         self.iterations = iterations
         self.depth = depth
         self.learning_rate = learning_rate
+        self.l2_leaf_reg = l2_leaf_reg
         self.random_state = random_state
         self._model = None
         self._is_fitted = False
@@ -234,6 +334,7 @@ class CatBoostNuisance(_NuisanceWrapper):
             iterations=self.iterations,
             depth=self.depth,
             learning_rate=self.learning_rate,
+            l2_leaf_reg=self.l2_leaf_reg,
             random_seed=self.random_state,
             verbose=0,
         )
@@ -302,10 +403,18 @@ def build_nuisance_model(
     outcome_family: OutcomeFamily = OutcomeFamily.GAUSSIAN,
     backend: str = "sklearn",
     estimator: Optional[BaseEstimator] = None,
+    nuisance_params: Optional[Dict] = None,
+    n_samples: Optional[int] = None,
     **kwargs,
 ) -> _NuisanceWrapper:
     """
     Factory function for nuisance outcome models.
+
+    When ``backend="catboost"`` and neither ``nuisance_params`` nor relevant
+    ``kwargs`` override the CatBoost hyperparameters, this function
+    automatically applies ``adaptive_catboost_params(n_samples)`` to select
+    regularisation appropriate for the dataset size.  Pass
+    ``nuisance_params`` explicitly to override the adaptive defaults.
 
     Parameters
     ----------
@@ -315,8 +424,19 @@ def build_nuisance_model(
         Which backend to use.
     estimator : sklearn estimator, optional
         Custom base learner (only used when backend="sklearn").
+    nuisance_params : dict, optional
+        Explicit hyperparameter overrides for the nuisance model.  For
+        the CatBoost backend, recognised keys are: ``depth``,
+        ``l2_leaf_reg``, ``learning_rate``, ``iterations``.  When
+        provided, these take precedence over adaptive defaults.
+    n_samples : int, optional
+        Total dataset size.  Used to select the adaptive regularisation
+        tier when ``backend="catboost"`` and ``nuisance_params`` is None.
+        If not provided, the large-sample (n >= 50k) defaults are used.
     **kwargs
-        Passed to the nuisance model constructor.
+        Passed to the nuisance model constructor.  Deprecated in favour
+        of ``nuisance_params``; kwargs are merged in with lower priority
+        than ``nuisance_params``.
 
     Returns
     -------
@@ -324,7 +444,19 @@ def build_nuisance_model(
         A fitted-ready nuisance model.
     """
     if backend == "catboost":
-        return CatBoostNuisance(outcome_family=outcome_family, **kwargs)
+        # Determine effective params: adaptive defaults -> kwargs -> nuisance_params
+        if n_samples is not None:
+            base_params = adaptive_catboost_params(n_samples)
+        else:
+            # No sample size info — use large-sample defaults (depth=6, etc.)
+            base_params = dict(_CATBOOST_TIERS[0][1])
+
+        # kwargs may contain legacy overrides; nuisance_params wins over both
+        effective_params = {**base_params, **kwargs}
+        if nuisance_params is not None:
+            effective_params.update(nuisance_params)
+
+        return CatBoostNuisance(outcome_family=outcome_family, **effective_params)
     elif backend == "linear":
         return SklearnNuisance(
             estimator=Ridge(alpha=kwargs.get("alpha_reg", 1.0)),

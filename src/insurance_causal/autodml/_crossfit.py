@@ -10,11 +10,19 @@ The function ``cross_fit_nuisance`` returns:
   - g_hat : out-of-fold E[Y | D, X] predictions
   - alpha_hat : out-of-fold Riesz representer predictions
   - fold_indices : list of (train_idx, eval_idx) tuples for downstream use
+
+Adaptive regularisation
+-----------------------
+When ``nuisance_backend="catboost"``, the CatBoost hyperparameters are
+selected automatically based on the total sample size ``n`` via
+``adaptive_catboost_params()``.  This prevents over-partialling at small
+sample sizes (n <= 10,000) where default CatBoost settings overfit the
+training fold.  Pass ``nuisance_params`` to override the adaptive defaults.
 """
 from __future__ import annotations
 
 import warnings
-from typing import Callable, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import numpy as np
 from sklearn.model_selection import KFold
@@ -37,6 +45,7 @@ def cross_fit_nuisance(
     sample_weight: Optional[np.ndarray] = None,
     exposure: Optional[np.ndarray] = None,
     random_state: Optional[int] = None,
+    nuisance_params: Optional[Dict] = None,
 ) -> Tuple[np.ndarray, np.ndarray, List[Tuple[np.ndarray, np.ndarray]], List[_NuisanceWrapper]]:
     """
     K-fold cross-fitting of nuisance models and Riesz representer.
@@ -69,6 +78,15 @@ def cross_fit_nuisance(
         multiplied back in predictions.
     random_state : int or None
         Random seed for fold splits.
+    nuisance_params : dict, optional
+        Explicit hyperparameter overrides for the nuisance model.  For the
+        CatBoost backend, recognised keys are: ``depth``, ``l2_leaf_reg``,
+        ``learning_rate``, ``iterations``.  When provided, these override
+        the adaptive defaults selected by ``adaptive_catboost_params()``.
+
+        Example — force strong regularisation regardless of n::
+
+            cross_fit_nuisance(..., nuisance_params={"depth": 2, "l2_leaf_reg": 50})
 
     Returns
     -------
@@ -117,11 +135,16 @@ def cross_fit_nuisance(
         else:
             Y_tr_fit = Y_tr
 
-        # Fit nuisance outcome model
+        # Fit nuisance outcome model.
+        # Pass n (full dataset size) so adaptive_catboost_params() can select
+        # the correct regularisation tier.  Per-fold sample size would give a
+        # misleading picture — the tier should reflect the total portfolio size.
         nuisance = build_nuisance_model(
             outcome_family=outcome_family,
             backend=nuisance_backend,
             estimator=nuisance_estimator,
+            nuisance_params=nuisance_params,
+            n_samples=n,
         )
         nuisance.fit(D_tr, X_tr, Y_tr_fit, sample_weight=sw_tr)
         nuisance_models.append(nuisance)

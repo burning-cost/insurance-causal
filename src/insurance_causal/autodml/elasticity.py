@@ -69,6 +69,19 @@ class PremiumElasticity:
         Keyword arguments passed to the Riesz regressor constructor.
     nuisance_estimator : sklearn estimator, optional
         Custom base learner for outcome nuisance.  Overrides nuisance_backend.
+    nuisance_params : dict, optional
+        Explicit hyperparameter overrides for the CatBoost nuisance model.
+        Recognised keys: ``depth``, ``l2_leaf_reg``, ``learning_rate``,
+        ``iterations``.  When provided, these override the adaptive defaults
+        selected by sample size.  Example::
+
+            PremiumElasticity(
+                nuisance_backend="catboost",
+                nuisance_params={"depth": 3, "l2_leaf_reg": 10},
+            )
+
+        If not provided and ``nuisance_backend="catboost"``, adaptive
+        regularisation is applied automatically based on the dataset size.
     inference : {"eif", "bootstrap"}
         Inference method.  "eif" is faster; "bootstrap" can give better
         finite-sample coverage in small datasets.
@@ -97,6 +110,7 @@ class PremiumElasticity:
         riesz_type: str = "forest",
         riesz_kwargs: Optional[dict] = None,
         nuisance_estimator: Optional[BaseEstimator] = None,
+        nuisance_params: Optional[Dict] = None,
         inference: str = "eif",
         ci_level: float = 0.95,
         cluster_ids: Optional[np.ndarray] = None,
@@ -110,6 +124,7 @@ class PremiumElasticity:
         self.riesz_type = riesz_type
         self.riesz_kwargs = riesz_kwargs or {}
         self.nuisance_estimator = nuisance_estimator
+        self.nuisance_params = nuisance_params
         self.inference = inference
         self.ci_level = ci_level
         self.cluster_ids = cluster_ids
@@ -189,6 +204,7 @@ class PremiumElasticity:
             sample_weight=sample_weight,
             exposure=exposure,
             random_state=self.random_state,
+            nuisance_params=self.nuisance_params,
         )
 
         self.g_hat_ = g_hat
