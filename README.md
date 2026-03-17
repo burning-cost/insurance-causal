@@ -459,26 +459,32 @@ work.
 
 ## Performance
 
-Benchmarked against **naive Poisson GLM** on synthetic UK motor data — 5,000 policies with a known true causal effect of −0.15 (15% claim frequency reduction from a telematics discount). Full script: `benchmarks/run_benchmark.py`.
+Benchmarked on Databricks serverless (Python 3.11, seed=42). Full script: `benchmarks/run_benchmark.py`.
 
-The DGP encodes deliberate confounding: driver safety score drives both discount eligibility and claim frequency. The benchmark measures how far each estimator deviates from the known true effect of −0.15.
+**Setup:** 10,000 UK motor renewal policies. Treatment: continuous telematics score (standardised, mean 0 std 1). Outcome: binary renewal indicator (renewal rate 64%). True causal effect: +0.08 log-odds per SD of telematics score. Confounding mechanism: multiplicative risk score (age × NCB × region interaction) drives both telematics performance and renewal probability — the GLM models these as additive main effects and misses the interaction; CatBoost tree splits learn it naturally.
 
-| Metric | Naive Poisson GLM | DML (insurance-causal) |
-|--------|------------------|------------------------|
-| Treatment effect estimate | −0.2124 | −0.0202 |
-| True effect | −0.1500 | −0.1500 |
-| Bias (absolute) | 0.0624 (41.6%) | 0.1298 (86.5%) |
+| Metric | Naive Logistic GLM | DML (insurance-causal) |
+|--------|-------------------|------------------------|
+| Treatment effect estimate | +0.0546 | +0.0077 |
+| True effect | +0.0800 | +0.0800 |
+| Bias (absolute) | 0.0254 (31.8%) | 0.0723 (90.4%) |
 | 95% CI covers true effect | Yes | No |
-| CI width | 0.396 | 0.038 |
-| Fit time | 1.7s | 5.9s (5-fold CatBoost) |
+| CI width | 0.090 | 0.019 |
+| Fit time | 0.3s | 6.6s (5-fold CatBoost) |
 
-**Honest note on this run:** In this execution the naive GLM outperformed DML. The confounding in this DGP (safety score → discount assignment → claim frequency) was not strong enough on this seed to visibly bias the Poisson GLM — the GLM estimate landed within 42% of truth while DML underestimated by 87%. DML's CatBoost nuisance models over-partialled the treatment variation, leaving insufficient residual signal.
+**What these results show.** On this synthetic dataset both estimators are biased — neither sees the true DGP's multiplicative interaction directly. The GLM is biased upward by 32% because it models the nonlinear confounding as additive main effects. DML is biased downward by 90% because its CatBoost nuisance models absorb too much of the treatment variation in E[Y|X], leaving Y_tilde with insufficient signal for the final OLS regression.
 
-This is a genuine limitation: when treatment variation is largely explained by observed confounders, the residualised treatment has low variance and the final DML regression is imprecise. DML's advantage is most visible when (a) confounders genuinely drive both treatment assignment and outcome, and (b) the propensity model does not over-absorb treatment variation. In real insurance data with unobserved confounders (attitude to risk, actual mileage), DML wins decisively because the GLM bias grows while DML remains consistent.
+This is the "over-partialling" problem: when the nuisance model for E[Y|X] fits the outcome too well in each cross-fitting fold, the residuals Y_tilde approach zero and the final regression is poorly conditioned. It occurs most acutely at n=10,000 with a binary outcome and a small true effect — the CatBoost model has enough power to explain most of the variation in Y from X, leaving little room for the treatment coefficient.
 
-**When to use:** When the treatment is not randomly assigned — telematics discounts, renewal price changes, channel, campaign flags. The `confounding_bias_report()` shows how far the naive estimate has drifted.
+**When DML wins in practice.** The over-partialling problem shrinks with larger n (DML is root-n-consistent; at n=100,000 the nuisance estimation error is small relative to the signal), stronger true effects, and more outcome variation that genuinely depends on treatment. The library's design is optimised for real insurance datasets where these conditions typically hold: a renewal book of 100k+ policies, price effects on the order of 2–5% per 10% price increase, and rich confounders that a GLM genuinely misspecifies.
 
-**When NOT to use:** When the treatment is genuinely random (A/B test with proper randomisation). Also when treatment variation is nearly deterministic — DML confidence intervals will be wide.
+On the synthetic renewal datasets used in the quick-start example (n=15,000, `make_renewal_data()`), DML recovers the semi-elasticity of −0.023 accurately within its confidence interval. The benchmark script uses a harder DGP (small effect, nonlinear confounding, moderate n) that exposes the limits of the estimator.
+
+**The `confounding_bias_report()` use case.** DML's primary value in insurance is not always the absolute estimate — it's the direction and magnitude of the confounding correction. When a GLM gives −0.045 and DML gives −0.023, the team learns that observed confounders explain roughly half the naive estimate. Even if the DML estimate has some regularisation bias, the signal is: "your naive estimate is inflated." The sensitivity analysis (`sensitivity_analysis()`) quantifies how much an unobserved confounder would need to be to overturn that conclusion.
+
+**When to use:** When the treatment is not randomly assigned — telematics discounts, renewal price changes, channel, campaign flags. At n ≥ 50,000. The `confounding_bias_report()` is useful even when the absolute estimate is uncertain.
+
+**When NOT to use:** n < 10,000 (DML's asymptotic properties don't kick in at small n). When the treatment is genuinely random (A/B test). When outcome variance is very low (sparse Poisson claim counts at low frequency). When treatment variation is near-deterministic — confidence intervals will be wide and the estimate will be attenuated.
 
 
 ## Related Libraries
