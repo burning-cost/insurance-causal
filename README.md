@@ -128,9 +128,9 @@ import polars as pl
 from insurance_causal import CausalPricingModel
 from insurance_causal.treatments import PriceChangeTreatment
 
-# Synthetic UK motor renewal portfolio — 15,000 policies
+# Synthetic UK motor renewal portfolio — 50,000 policies
 rng = np.random.default_rng(42)
-n = 15_000
+n = 50_000
 vehicle_age  = rng.integers(1, 15, n)
 driver_age   = rng.integers(25, 75, n)
 ncb_years    = rng.integers(0, 9, n)
@@ -182,17 +182,17 @@ ate = model.average_treatment_effect()
 print(ate)
 ```
 
-Output:
+Output (run on Databricks serverless, 2026-03-19, seed=42, n=50,000):
 
 ```
 Average Treatment Effect
   Treatment: pct_price_change
   Outcome:   renewal
-  Estimate:  -0.0231
-  Std Error: 0.0041
-  95% CI:    (-0.0311, -0.0151)
-  p-value:   0.0000
-  N:         15,000
+  Estimate:  -0.1993
+  Std Error: 0.0522
+  95% CI:    (-0.3016, -0.0970)
+  p-value:   0.0001
+  N:         50,000
 ```
 
 ---
