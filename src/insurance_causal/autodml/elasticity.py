@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 
-from insurance_causal.autodml._crossfit import cross_fit_nuisance, compute_ame_scores, compute_dg_dD
+from insurance_causal.autodml._crossfit import cross_fit_nuisance, compute_ame_scores, compute_dg_dD, validate_inputs
 from insurance_causal.autodml._inference import run_inference
 from insurance_causal.autodml._types import EstimationResult, OutcomeFamily, SegmentResult
 from insurance_causal.autodml.riesz import ForestRiesz, LinearRiesz
@@ -188,6 +188,8 @@ class PremiumElasticity:
             exposure = np.asarray(exposure, dtype=float).ravel()
         if sample_weight is not None:
             sample_weight = np.asarray(sample_weight, dtype=float).ravel()
+
+        validate_inputs(X, D, Y)
 
         riesz_cls = ForestRiesz if self.riesz_type == "forest" else LinearRiesz
 

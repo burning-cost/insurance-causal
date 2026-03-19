@@ -36,7 +36,7 @@ from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 
-from insurance_causal.autodml._crossfit import cross_fit_nuisance
+from insurance_causal.autodml._crossfit import cross_fit_nuisance, validate_inputs
 from insurance_causal.autodml._inference import run_inference
 from insurance_causal.autodml._types import EstimationResult, OutcomeFamily
 from insurance_causal.autodml.riesz import ForestRiesz
@@ -132,6 +132,8 @@ class PolicyShiftEffect:
             exposure = np.asarray(exposure, dtype=float).ravel()
         if sample_weight is not None:
             sample_weight = np.asarray(sample_weight, dtype=float).ravel()
+
+        validate_inputs(X, D, Y)
 
         g_hat, alpha_hat, fold_indices, nuisance_models = cross_fit_nuisance(
             X=X,

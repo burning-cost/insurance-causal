@@ -486,15 +486,19 @@ class CausalPricingModel:
 
             df_seg = df_pd[mask].copy()
 
-            # Warn when segment is small: CatBoost with default 500 iterations
-            # on fewer than 500 observations will overfit severely.
-            # Reduce iterations proportionally so that the model sees at least
-            # 5 training examples per tree.  The floor of n_seg // 5 ensures
-            # the model has some capacity without overfitting.
-            if n_seg < 500:
+            # Warn and cap iterations for small segments.
+            #
+            # The original threshold was n < 500.  Benchmarks show that segments
+            # of 500-1000 observations also overfit with CatBoost at depth 6 and
+            # 300+ iterations: the nuisance model memorises fold-level variation,
+            # leading to over-partialled residuals and inflated CATE estimates.
+            #
+            # Heuristic: cap iterations at min(100, n_estimators_default) for
+            # segments smaller than 1000.  This matches the adaptive regularisation
+            # tier used in cross_fit_nuisance (see adaptive_catboost_params).
+            if n_seg < 1000:
                 import warnings
-                import math
-                max_iter = max(50, n_seg // 5)
+                max_iter = max(50, min(100, n_seg // 5))
                 warnings.warn(
                     f"Segment '{segment_val}' has only {n_seg} observations. "
                     f"CatBoost iterations capped at {max_iter} to reduce overfitting. "
@@ -504,9 +508,6 @@ class CausalPricingModel:
                     UserWarning,
                     stacklevel=2,
                 )
-                # Build a nuisance model with reduced iterations
-                from insurance_causal._utils import build_catboost_regressor, build_catboost_classifier
-                from catboost import CatBoostRegressor, CatBoostClassifier
                 _seg_iterations = max_iter
             else:
                 _seg_iterations = None  # use model defaults

@@ -3,7 +3,6 @@
 ![Tests](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PyPI](https://img.shields.io/pypi/v/insurance-causal)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/insurance-causal/blob/main/notebooks/quickstart.ipynb)
 
-> 💬 Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal/discussions). Found it useful? A ⭐ helps others find it.
 
 Causal inference for insurance pricing, built on Double Machine Learning.
 
@@ -96,25 +95,6 @@ result = opt.optimise(df, budget_constraint_pct=0.0)  # ENBP-neutral
 ```
 
 The optimiser is designed to produce pricing structures consistent with the FCA PS21/5 ENBP constraint structure. Regulatory compliance with PS21/5 requires governance, audit trail, Board sign-off, and ongoing monitoring that goes beyond any algorithm alone. Do not treat this output as a substitute for those obligations.
-
----
-
-## The killer feature: confounding bias report
-
-A pricing team has a GLM coefficient on price change of -0.045. This is the naive estimate: price sensitivity looks very high. They fit DML and get:
-
-```python
-report = model.confounding_bias_report(naive_coefficient=-0.045)
-```
-
-```
-  treatment         outcome  naive_estimate  causal_estimate    bias  bias_pct  ...
-  pct_price_change  renewal         -0.0450          -0.0230  -0.022     -95.7%
-```
-
-The naive estimate is roughly double the causal effect. The confounding mechanism: high-risk customers receive larger price increases, and those customers have lower baseline renewal rates. The price change is correlated with risk quality, so the naive regression attributes some of the risk-driven lapse to price sensitivity.
-
-The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong.
 
 ---
 
@@ -216,6 +196,28 @@ Average Treatment Effect
 ```
 
 ---
+
+## The killer feature: confounding bias report
+
+A pricing team has a GLM coefficient on price change of -0.045. This is the naive estimate: price sensitivity looks very high. They fit DML and get:
+
+```python
+report = model.confounding_bias_report(naive_coefficient=-0.045)
+```
+
+```
+  treatment         outcome  naive_estimate  causal_estimate    bias  bias_pct  ...
+  pct_price_change  renewal         -0.0450          -0.0230  -0.022     -95.7%
+```
+
+The naive estimate is roughly double the causal effect. The confounding mechanism: high-risk customers receive larger price increases, and those customers have lower baseline renewal rates. The price change is correlated with risk quality, so the naive regression attributes some of the risk-driven lapse to price sensitivity.
+
+The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong.
+
+---
+
+
+
 
 ## Confounding bias report
 
@@ -320,6 +322,8 @@ cate = cate_by_decile(model, df, score_col="predicted_frequency", n_deciles=10)
 ## Sensitivity analysis
 
 How strong would an unobserved confounder need to be to overturn the result?
+
+> **WARNING — heuristic approximation.** The `sensitivity_analysis()` function uses a simplified bound: `bias_bound = log(gamma) * se`. This is not the classical Rosenbaum rank-based test on matched studies — it is a heuristic applied to the DML point estimate and standard error. For a rigorous sensitivity analysis, see the `sensemakr` package (Python port available), which implements the Cinelli-Hazlett (2020) partial R-squared bounds. The heuristic here is sufficient for directional guidance but should not be cited as a formal Rosenbaum bound.
 
 ```python
 from insurance_causal.diagnostics import sensitivity_analysis
@@ -562,6 +566,8 @@ to receive the telematics discount. Full methodology: `notebooks/benchmark.py`.
 | Absolute bias | 0.0015 (1.0%) | typically <10% at n=20k |
 | 95% CI covers truth? | Yes | Yes with adaptive params |
 | Fit time | 0.24s | 12–18s (5-fold, 20k obs) |
+
+**Note on n=20,000 benchmark bias figures.** The headline benchmark shows the naive GLM with only ~1% bias at n=20,000. This reflects the specific DGP: at this sample size the synthetic confounding structure is weak enough that naive regression largely recovers the true effect. The small-sample sweep results above (n=1,000-10,000) show where the gap is meaningful. In real portfolios with stronger confounding — renewal pricing where higher-risk customers receive larger increases, or telematics where urban drivers have both worse scores and higher underlying risk — the naive GLM bias is typically 20-50% at n=5,000. The n=20,000 benchmark illustrates stability at scale; see the small-sample section for the commercially relevant case.
 
 **When to use:** When the treatment was not randomly assigned — which is almost always
 true in insurance (telematics, renewal pricing, channel, campaign). DML removes the

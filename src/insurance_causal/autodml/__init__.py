@@ -36,6 +36,7 @@ arXiv:2601.08643 "Automatic debiased machine learning and sensitivity
 
 from insurance_causal.autodml.dgp import SyntheticContinuousDGP
 from insurance_causal.autodml._nuisance import adaptive_catboost_params
+from insurance_causal.autodml._crossfit import validate_inputs
 from insurance_causal.autodml.elasticity import PremiumElasticity
 from insurance_causal.autodml.dose_response import DoseResponseCurve
 from insurance_causal.autodml.policy_shift import PolicyShiftEffect
@@ -49,7 +50,7 @@ from insurance_causal.autodml._types import (
     OutcomeFamily,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.3.3"
 
 __all__ = [
     # Main estimators
@@ -71,6 +72,7 @@ __all__ = [
     "OutcomeFamily",
     # Utilities
     "adaptive_catboost_params",
+    "validate_inputs",
     # Version
     "__version__",
 ]

@@ -31,6 +31,57 @@ from insurance_causal.autodml._nuisance import _NuisanceWrapper, build_nuisance_
 from insurance_causal.autodml._types import OutcomeFamily
 from insurance_causal.autodml.riesz import ForestRiesz, LinearRiesz
 
+def validate_inputs(
+    X: np.ndarray,
+    D: np.ndarray,
+    Y: np.ndarray,
+    *,
+    allow_nan_Y: bool = False,
+) -> None:
+    """
+    Validate primary inputs to autodml entry points.
+
+    Raises ValueError on NaN in X or D (always illegal), and on NaN in Y
+    unless allow_nan_Y=True (SelectionCorrectedElasticity handles NaN Y
+    by coercing to 0 with a warning — all other estimators require clean Y).
+
+    Parameters
+    ----------
+    X : array of shape (n, p)
+        Covariates.
+    D : array of shape (n,)
+        Treatment.
+    Y : array of shape (n,)
+        Outcome.
+    allow_nan_Y : bool
+        If True, skip the NaN check for Y (caller handles it downstream).
+
+    Raises
+    ------
+    ValueError
+        If any NaN values are found in the inputs.
+    """
+    if np.any(np.isnan(X)):
+        nan_count = int(np.isnan(X).sum())
+        raise ValueError(
+            f"X contains {nan_count} NaN value(s). Impute or drop rows with "
+            "missing covariates before calling fit()."
+        )
+    if np.any(np.isnan(D)):
+        nan_count = int(np.isnan(D).sum())
+        raise ValueError(
+            f"D (treatment) contains {nan_count} NaN value(s). The treatment "
+            "must be fully observed for all rows. Drop or impute before calling fit()."
+        )
+    if not allow_nan_Y and np.any(np.isnan(Y)):
+        nan_count = int(np.isnan(Y).sum())
+        raise ValueError(
+            f"Y (outcome) contains {nan_count} NaN value(s). The outcome must be "
+            "fully observed. For selection models where Y is unobserved for "
+            "non-renewers, use SelectionCorrectedElasticity and set Y=0 for "
+            "non-renewers (not NaN)."
+        )
+
 
 def cross_fit_nuisance(
     X: np.ndarray,

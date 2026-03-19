@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
 
-from insurance_causal.autodml._crossfit import cross_fit_nuisance
+from insurance_causal.autodml._crossfit import cross_fit_nuisance, validate_inputs
 from insurance_causal.autodml._inference import eif_inference
 from insurance_causal.autodml._types import DoseResponseResult, OutcomeFamily
 from insurance_causal.autodml.riesz import ForestRiesz
@@ -150,6 +150,8 @@ class DoseResponseCurve:
             exposure = np.asarray(exposure, dtype=float).ravel()
         if sample_weight is not None:
             sample_weight = np.asarray(sample_weight, dtype=float).ravel()
+
+        validate_inputs(X, D, Y)
 
         # For dose-response we need nuisance models that can predict at new D
         g_hat, _, fold_indices, nuisance_models = cross_fit_nuisance(

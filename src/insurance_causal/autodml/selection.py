@@ -42,7 +42,7 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import KFold
 
-from insurance_causal.autodml._crossfit import cross_fit_nuisance
+from insurance_causal.autodml._crossfit import cross_fit_nuisance, validate_inputs
 from insurance_causal.autodml._inference import run_inference
 from insurance_causal.autodml._types import EstimationResult, OutcomeFamily
 from insurance_causal.autodml.riesz import ForestRiesz
@@ -157,6 +157,10 @@ class SelectionCorrectedElasticity:
             exposure = np.asarray(exposure, dtype=float).ravel()
         if sample_weight is not None:
             sample_weight = np.asarray(sample_weight, dtype=float).ravel()
+
+        # allow_nan_Y=True: NaN outcomes for non-renewers are coerced to 0
+        # in estimate() via np.where.  NaN in X or D is always illegal.
+        validate_inputs(X, D, Y, allow_nan_Y=True)
 
         n = len(Y)
         g_hat = np.full(n, np.nan)
