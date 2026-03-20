@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal"
-version = "0.4.1"
+version = "0.4.2"
 description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, causal price elasticity, and heterogeneous treatment effects."
 readme = "README.md"
 license = { file = "LICENSE" }

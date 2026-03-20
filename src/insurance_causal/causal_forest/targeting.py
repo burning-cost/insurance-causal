@@ -191,13 +191,13 @@ class TargetingEvaluator:
         -------
         TargetingResult
         """
-        from .estimator import _to_pandas
+        from .estimator import _to_pandas, _extract_features
 
         df_pd = _to_pandas(df)
         Y = df_pd[estimator._outcome_col].values.astype(float)
         W = df_pd[estimator._treatment_col].values.astype(float)
         confounders = list(estimator._confounders)
-        X = df_pd[confounders].values.astype(float)
+        X, _ = _extract_features(df_pd, confounders)
 
         n = len(Y)
         tau_hat = np.asarray(cate_proxy)
