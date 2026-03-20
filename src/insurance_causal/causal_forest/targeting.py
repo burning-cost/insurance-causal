@@ -36,6 +36,9 @@ from typing import Literal
 import numpy as np
 import polars as pl
 
+# np.trapz removed in numpy 2.0; np.trapezoid is the replacement
+_trapz = getattr(np, "trapezoid", None) or np.trapz
+
 
 @dataclass
 class TargetingResult:
@@ -298,7 +301,7 @@ class TargetingEvaluator:
         else:
             raise ValueError(f"Unknown method '{method}'. Use 'autoc' or 'qini'.")
 
-        return float(np.trapz(integrand, q_grid))
+        return float(_trapz(integrand, q_grid))
 
     def _toc_curve(
         self,
@@ -352,7 +355,7 @@ class TargetingEvaluator:
                 top_wmean = float(np.average(dr_sorted[mask], weights=w_sorted[mask]))
                 toc_b[i] = top_wmean - global_wmean
 
-            rate_b = float(np.trapz(toc_b / q_grid, q_grid))  # always AUTOC for SE
+            rate_b = float(_trapz(toc_b / q_grid, q_grid))  # always AUTOC for SE
 
             boot_rates.append(rate_b)
             toc_curves.append(toc_b)
