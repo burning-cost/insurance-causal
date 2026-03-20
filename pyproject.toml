@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal"
-version = "0.3.3"
-description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, and causal price elasticity."
+version = "0.4.0"
+description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, causal price elasticity, and heterogeneous treatment effects."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -17,6 +17,8 @@ keywords = [
     "dose-response", "renewal-pricing", "GIPP", "PS21/5",
     "UK",
     "personal lines",
+    "heterogeneous-treatment-effects", "hte", "causal-forest",
+    "blp", "gates", "clan", "rate", "autoc",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -44,6 +46,9 @@ dependencies = [
 
 [project.optional-dependencies]
 elasticity = [
+    "econml>=0.15",
+]
+causal_forest = [
     "econml>=0.15",
 ]
 plots = [

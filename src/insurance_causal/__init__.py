@@ -26,6 +26,13 @@ elasticity
     effects. Key classes: RenewalElasticityEstimator, RenewalPricingOptimiser,
     ElasticitySurface.
 
+causal_forest
+    Heterogeneous treatment effect estimation via CausalForestDML with formal
+    BLP/GATES/CLAN inference (Chernozhukov et al. 2020/2025) and RATE/AUTOC
+    targeting evaluation (Yadlowsky et al. 2025).
+    Key classes: HeterogeneousElasticityEstimator, HeterogeneousInference,
+    TargetingEvaluator, CausalForestDiagnostics.
+
 Quick start
 -----------
 >>> from insurance_causal import CausalPricingModel
@@ -53,6 +60,17 @@ Quick start
 >>> est.fit(df, confounders=confounders)
 >>> ate, lb, ub = est.ate()
 
+# Causal forest HTE subpackage
+>>> from insurance_causal.causal_forest import (
+...     HeterogeneousElasticityEstimator,
+...     HeterogeneousInference,
+...     make_hte_renewal_data,
+... )
+>>> df = make_hte_renewal_data(n=10_000)
+>>> est = HeterogeneousElasticityEstimator(n_estimators=200)
+>>> est.fit(df, confounders=["age", "ncd_years", "channel"])
+>>> cates = est.cate(df)
+
 References
 ----------
 Chernozhukov, V. et al. (2018). "Double/Debiased Machine Learning for
@@ -63,6 +81,9 @@ Double Machine Learning in R." Journal of Statistical Software, 108(3): 1-56.
 
 Chernozhukov et al. (2022) "Automatic Debiased Machine Learning of Causal
 and Structural Effects" Econometrica 90(3):967-1027.
+
+Athey, Tibshirani & Wager (2019). "Generalized Random Forests."
+    Annals of Statistics 47(2): 1148-1178.
 """
 
 from ._model import CausalPricingModel, AverageTreatmentEffect
@@ -70,6 +91,7 @@ from . import treatments
 from . import diagnostics
 from . import autodml
 from . import elasticity
+from . import causal_forest
 
 __all__ = [
     "CausalPricingModel",
@@ -78,6 +100,7 @@ __all__ = [
     "diagnostics",
     "autodml",
     "elasticity",
+    "causal_forest",
 ]
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"
