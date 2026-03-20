@@ -583,6 +583,42 @@ in `cate_by_segment()`, the library warns and reduces CatBoost iterations automa
 
 
 
+### Causal Forest GATE vs Uniform ATE (v0.4.0)
+
+Benchmark of `HeterogeneousElasticityEstimator` GATE vs uniform ATE on a heterogeneous
+synthetic portfolio. Both estimators share the same causal forest fit — the comparison
+isolates the cost of ignoring segment-level heterogeneity.
+
+**DGP:** 20,000 UK motor renewal policies. Logistic outcome (73% baseline renewal rate).
+Log-odds semi-elasticities vary by age band x urban status: young urban −6.0, senior
+rural −1.0. Treatment (log price change) is confounded by risk profile.
+
+True effects are probability-scale semi-elasticities (dY/dW), computed as
+p_i(1−p_i) × log-odds coefficient. This is the estimand CausalForestDML targets.
+
+| Metric | Uniform ATE | GATE (causal forest) |
+|--------|-------------|---------------------|
+| ATE estimate | −0.563 | −0.563 (same model) |
+| True ATE | −0.651 | −0.651 |
+| ATE bias | 0.087 (13.4%) | 0.087 |
+| Segment RMSE vs true effects | **0.382** | **0.123** (3.1× better) |
+| Bias on most elastic (young urban) | 0.775 | 0.178 (4.4× better) |
+| Bias on least elastic (senior rural) | 0.401 | 0.079 (5× better) |
+| CI coverage (6 segments) | N/A | 100% (6/6) |
+| AUTOC (RATE) | N/A | 1.932, p=0.000 |
+| Corr(estimated CATE, true CATE) | N/A | 0.699 |
+| BLP beta2 (genuine heterogeneity?) | N/A | 3.40, p=0.000 |
+| Fit time | 20s | 20s (shared) |
+
+Run on Databricks serverless, 2026-03-20. Full methodology: `benchmarks/benchmark_causal_forest.py`.
+Databricks notebook: `notebooks/benchmark_causal_forest.py`.
+
+**Takeaway:** Using the uniform ATE for segment-level pricing misrepresents the most
+elastic segment by 0.77 probability units. On a 20k-policy book, GATE reduces this
+error 4-fold. The AUTOC test (p=0.000) confirms the CATE ranking adds verified targeting
+value — the CLAN results show this maps to age and urban classification as expected.
+
+
 ## Related Libraries
 
 | Library | What it does |

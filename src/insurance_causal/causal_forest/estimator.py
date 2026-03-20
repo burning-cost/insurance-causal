@@ -211,10 +211,7 @@ class HeterogeneousElasticityEstimator:
         """
         self._check_fitted()
         df_pd = _to_pandas(df)
-        _, _, X, _, _ = _extract_arrays(
-            df_pd, self._outcome_col, self._treatment_col, self._confounders,
-            exposure_col=None,
-        )
+        X, _ = _extract_features(df_pd, self._confounders)
         return self._estimator.effect(X).flatten()
 
     def cate_interval(
@@ -237,10 +234,7 @@ class HeterogeneousElasticityEstimator:
         """
         self._check_fitted()
         df_pd = _to_pandas(df)
-        _, _, X, _, _ = _extract_arrays(
-            df_pd, self._outcome_col, self._treatment_col, self._confounders,
-            exposure_col=None,
-        )
+        X, _ = _extract_features(df_pd, self._confounders)
         lb, ub = self._estimator.effect_interval(X, alpha=alpha)
         return lb.flatten(), ub.flatten()
 
@@ -466,3 +460,26 @@ def _extract_arrays(
     feature_names = list(subset.columns)
 
     return Y, D, X, feature_names, sample_weight
+
+
+def _extract_features(
+    df_pd: "pd.DataFrame",
+    confounders: list[str],
+) -> tuple[np.ndarray, list[str]]:
+    """Extract X feature matrix from a pandas DataFrame (no outcome/treatment needed).
+
+    Used by cate() and cate_interval() for prediction-only paths, where outcome
+    and treatment columns may not be present (e.g. when called from
+    HeterogeneousInference with confounder-only subsets).
+    """
+    import pandas as pd_mod
+
+    subset = df_pd[confounders].copy()
+    obj_cols = subset.select_dtypes(include=["object", "category"]).columns.tolist()
+    if obj_cols:
+        subset = pd_mod.get_dummies(subset, columns=obj_cols, drop_first=True)
+
+    subset = subset.fillna(subset.mean())
+    X = subset.values.astype(float)
+    feature_names = list(subset.columns)
+    return X, feature_names
