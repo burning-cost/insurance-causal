@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 
 @dataclass
@@ -43,22 +43,55 @@ class TargetingResult:
 
     Attributes
     ----------
-    rate:
-        RATE estimate (AUTOC or QINI, depending on method).
-    se:
-        Bootstrap standard error.
-    p_value:
-        p-value for H0: RATE = 0 (one-sided, RATE > 0).
-    method:
-        ``"autoc"`` or ``"qini"``.
+    autoc:
+        AUTOC estimate (Rank-Weighted Average Treatment Effect, AUTOC weighting).
+    autoc_se:
+        Bootstrap standard error for AUTOC.
+    autoc_ci_lower:
+        Lower bound of the 95% confidence interval for AUTOC.
+    autoc_ci_upper:
+        Upper bound of the 95% confidence interval for AUTOC.
+    qini:
+        QINI coefficient estimate (uniform weighting of TOC).
+    n_obs:
+        Number of observations used.
     toc_curve:
-        DataFrame with columns: q, toc, se_lower, se_upper.
+        polars.DataFrame with columns: q, toc, se_lower, se_upper.
     """
-    rate: float
-    se: float
-    p_value: float
-    method: str
-    toc_curve: pd.DataFrame
+    autoc: float
+    autoc_se: float
+    autoc_ci_lower: float
+    autoc_ci_upper: float
+    qini: float
+    n_obs: int
+    toc_curve: pl.DataFrame
+
+    def summary(self) -> str:
+        """Return a human-readable targeting evaluation report."""
+        lines = [
+            "Targeting Evaluation (RATE)",
+            "=" * 40,
+            f"N observations: {self.n_obs:,}",
+            "",
+            f"AUTOC: {self.autoc:.4f}  (SE={self.autoc_se:.4f})",
+            f"  95% CI: [{self.autoc_ci_lower:.4f}, {self.autoc_ci_upper:.4f}]",
+            f"QINI:  {self.qini:.4f}",
+            "",
+            "Interpretation:",
+        ]
+        if self.autoc_ci_lower > 0:
+            lines.append("  AUTOC significantly positive — CATE ranking is informative for targeting.")
+        elif self.autoc > 0:
+            lines.append("  AUTOC positive but not significant — weak evidence of targetable heterogeneity.")
+        else:
+            lines.append("  AUTOC not significantly positive — no evidence that CATE ranking adds targeting value.")
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return (
+            f"TargetingResult(AUTOC={self.autoc:.4f}, autoc_se={self.autoc_se:.4f}, "
+            f"QINI={self.qini:.4f}, n_obs={self.n_obs:,})"
+        )
 
     def plot_toc(self):
         """Plot the TOC curve with bootstrap confidence band.
@@ -74,10 +107,10 @@ class TargetingResult:
             return None
 
         fig, ax = plt.subplots(figsize=(8, 5))
-        q = self.toc_curve["q"].values
-        toc = self.toc_curve["toc"].values
-        lo = self.toc_curve["se_lower"].values
-        hi = self.toc_curve["se_upper"].values
+        q = self.toc_curve["q"].to_numpy()
+        toc = self.toc_curve["toc"].to_numpy()
+        lo = self.toc_curve["se_lower"].to_numpy()
+        hi = self.toc_curve["se_upper"].to_numpy()
 
         ax.plot(q, toc, color="steelblue", linewidth=2, label="TOC")
         ax.fill_between(q, lo, hi, alpha=0.25, color="steelblue", label="95% CI")
@@ -85,8 +118,7 @@ class TargetingResult:
         ax.set_xlabel("Fraction targeted (q)")
         ax.set_ylabel("TOC(q): targeting gain vs average")
         title = (
-            f"TOC Curve ({self.method.upper()})  "
-            f"RATE={self.rate:.4f}  p={self.p_value:.4f}"
+            f"TOC Curve  AUTOC={self.autoc:.4f}"
         )
         ax.set_title(title)
         ax.legend()
@@ -101,56 +133,59 @@ class TargetingEvaluator:
     ----------
     method:
         ``"autoc"`` or ``"qini"``. AUTOC integrates TOC(q)/q (weights early
-        quantiles more). QINI integrates TOC(q) uniformly.
+        quantiles more). QINI integrates TOC(q) uniformly. Both are always
+        computed; this parameter selects which is used for the primary SE
+        and CI reported in ``TargetingResult``.
     n_bootstrap:
         Bootstrap replicates for SE estimation. 200 is fast; 500 for production.
-    q_grid:
-        Quantile grid for TOC curve. Default linspace(0.05, 1.0, 20).
+    n_toc_points:
+        Number of points on the TOC curve q-grid (linspace from 0.05 to 1.0).
     random_state:
         Seed for bootstrap weight generation.
 
     Examples
     --------
-    >>> evaluator = TargetingEvaluator(method="autoc", n_bootstrap=200)
-    >>> result = evaluator.fit(
-    ...     estimator=est, df=df,
-    ...     outcome="renewed", treatment="log_price_change",
-    ...     confounders=confounders,
+    >>> evaluator = TargetingEvaluator(method="autoc", n_bootstrap=200, n_toc_points=20)
+    >>> result = evaluator.evaluate(
+    ...     df=df,
+    ...     estimator=est,
+    ...     cate_proxy=cates,
     ... )
-    >>> print(f"RATE={result.rate:.4f}  p={result.p_value:.4f}")
+    >>> print(result.summary())
     """
 
     def __init__(
         self,
         method: Literal["autoc", "qini"] = "autoc",
         n_bootstrap: int = 200,
-        q_grid: np.ndarray = None,
+        n_toc_points: int = 20,
         random_state: int = 42,
     ) -> None:
         self.method = method
         self.n_bootstrap = n_bootstrap
-        self.q_grid = q_grid if q_grid is not None else np.linspace(0.05, 1.0, 20)
+        self.n_toc_points = n_toc_points
         self.random_state = random_state
+        # q_grid derived from n_toc_points
+        self.q_grid = np.linspace(0.05, 1.0, n_toc_points)
 
-    def fit(
+    def evaluate(
         self,
-        estimator: object,
         df,
-        outcome: str,
-        treatment: str,
-        confounders: list,
+        estimator: object,
+        cate_proxy: np.ndarray,
     ) -> TargetingResult:
-        """Compute RATE and TOC curve.
+        """Compute RATE and TOC curve from a fitted estimator and CATE proxy.
 
         Parameters
         ----------
-        estimator:
-            Fitted HeterogeneousElasticityEstimator.
         df:
             Dataset. May overlap with training data — the DR scores provide
             protection against overfitting via the doubly-robust construction.
-        outcome, treatment, confounders:
-            Same as used for estimator.fit().
+        estimator:
+            Fitted HeterogeneousElasticityEstimator. Used to extract outcome,
+            treatment, and confounders for DR score computation.
+        cate_proxy:
+            Per-row CATE estimates, shape (n,). Used as the ranking rule.
 
         Returns
         -------
@@ -159,47 +194,49 @@ class TargetingEvaluator:
         from .estimator import _to_pandas
 
         df_pd = _to_pandas(df)
-        Y = df_pd[outcome].values.astype(float)
-        W = df_pd[treatment].values.astype(float)
-        X = df_pd[list(confounders)].values.astype(float)
+        Y = df_pd[estimator._outcome_col].values.astype(float)
+        W = df_pd[estimator._treatment_col].values.astype(float)
+        confounders = list(estimator._confounders)
+        X = df_pd[confounders].values.astype(float)
 
-        # Get CATE estimates (ranking rule)
-        tau_hat = estimator.cate(df)
+        n = len(Y)
+        tau_hat = np.asarray(cate_proxy)
 
         # Build DR pseudo-outcomes
         dr_scores = self._compute_dr_scores(Y, W, X, tau_hat)
 
-        # Compute point estimate RATE
-        rate_point = self._compute_rate(dr_scores, tau_hat, self.q_grid, self.method)
+        # Point estimates for both AUTOC and QINI
+        autoc_point = self._compute_rate(dr_scores, tau_hat, self.q_grid, "autoc")
+        qini_point = self._compute_rate(dr_scores, tau_hat, self.q_grid, "qini")
 
-        # Bootstrap SE
-        boot_rates, toc_curves_boot = self._bootstrap(
-            dr_scores, tau_hat, self.q_grid, self.method
+        # Bootstrap SE for AUTOC
+        boot_autoc, toc_curves_boot = self._bootstrap(
+            dr_scores, tau_hat, self.q_grid
         )
 
-        se = float(np.std(boot_rates, ddof=1))
-        # One-sided p-value: H0 RATE <= 0
-        from scipy import stats
-        z = rate_point / se if se > 0 else 0.0
-        p_value = float(stats.norm.sf(z))  # one-sided upper tail
+        autoc_se = float(np.std(boot_autoc, ddof=1))
+        autoc_ci_lower = float(autoc_point - 1.96 * autoc_se)
+        autoc_ci_upper = float(autoc_point + 1.96 * autoc_se)
 
         # TOC point curve + SE bands
         toc_point = self._toc_curve(dr_scores, tau_hat, self.q_grid)
-        toc_array = np.array(toc_curves_boot)  # (n_bootstrap, len(q_grid))
+        toc_array = np.array(toc_curves_boot)  # (n_bootstrap, n_toc_points)
         toc_se = np.std(toc_array, axis=0, ddof=1)
 
-        toc_df = pd.DataFrame({
-            "q": self.q_grid,
-            "toc": toc_point,
-            "se_lower": toc_point - 1.96 * toc_se,
-            "se_upper": toc_point + 1.96 * toc_se,
+        toc_df = pl.DataFrame({
+            "q": self.q_grid.tolist(),
+            "toc": toc_point.tolist(),
+            "se_lower": (toc_point - 1.96 * toc_se).tolist(),
+            "se_upper": (toc_point + 1.96 * toc_se).tolist(),
         })
 
         return TargetingResult(
-            rate=float(rate_point),
-            se=se,
-            p_value=p_value,
-            method=self.method,
+            autoc=float(autoc_point),
+            autoc_se=autoc_se,
+            autoc_ci_lower=autoc_ci_lower,
+            autoc_ci_upper=autoc_ci_upper,
+            qini=float(qini_point),
+            n_obs=n,
             toc_curve=toc_df,
         )
 
@@ -288,13 +325,12 @@ class TargetingEvaluator:
         dr_scores: np.ndarray,
         tau_hat: np.ndarray,
         q_grid: np.ndarray,
-        method: str,
     ) -> tuple[list[float], list[np.ndarray]]:
-        """Weighted bootstrap for SE estimation."""
+        """Weighted bootstrap for SE estimation (AUTOC only)."""
         rng = np.random.default_rng(self.random_state)
         n = len(dr_scores)
-        boot_rates = []
-        toc_curves = []
+        boot_rates: list[float] = []
+        toc_curves: list[np.ndarray] = []
 
         for _ in range(self.n_bootstrap):
             w = rng.exponential(1.0, size=n)
@@ -316,10 +352,7 @@ class TargetingEvaluator:
                 top_wmean = float(np.average(dr_sorted[mask], weights=w_sorted[mask]))
                 toc_b[i] = top_wmean - global_wmean
 
-            if method == "autoc":
-                rate_b = float(np.trapz(toc_b / q_grid, q_grid))
-            else:
-                rate_b = float(np.trapz(toc_b, q_grid))
+            rate_b = float(np.trapz(toc_b / q_grid, q_grid))  # always AUTOC for SE
 
             boot_rates.append(rate_b)
             toc_curves.append(toc_b)

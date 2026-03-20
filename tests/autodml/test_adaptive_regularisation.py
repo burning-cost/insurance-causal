@@ -317,10 +317,10 @@ class TestBuildCatboostRegressor:
     def test_small_n_applies_heavy_regularisation(self):
         reg = build_catboost_regressor(n_samples=500)
         # CatBoost stores params internally; check via get_params()
-        # _utils.adaptive_catboost_params(500) returns depth=4, l2=10
+        # adaptive_dml_catboost_params(500): n<2000 tier gives depth=2, l2=50
         params = reg.get_params()
-        assert params["depth"] == 4
-        assert params["l2_leaf_reg"] == 10.0
+        assert params["depth"] == 2
+        assert params["l2_leaf_reg"] == 50
 
     def test_large_n_uses_default_params(self):
         reg = build_catboost_regressor(n_samples=100_000)

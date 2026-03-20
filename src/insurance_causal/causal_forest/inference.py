@@ -570,7 +570,7 @@ class HeterogeneousInference:
         # Use encoded features for comparison
         import pandas as pd_mod
         subset = df_pd[confounders].copy()
-        obj_cols = subset.select_dtypes(include=["object", "category"]).columns.tolist()
+        obj_cols = subset.select_dtypes(include=["object", "string", "category"]).columns.tolist()
         if obj_cols:
             subset = pd_mod.get_dummies(subset, columns=obj_cols, drop_first=True)
         subset = subset.fillna(subset.mean())
