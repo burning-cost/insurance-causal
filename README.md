@@ -18,7 +18,7 @@ Double Machine Learning (DML), introduced by Chernozhukov et al. (2018), solves 
 
 `insurance-causal` wraps [DoubleML](https://docs.doubleml.org/) with an interface designed for pricing actuaries. You specify the treatment (price change, channel flag, telematics score) and the confounders (rating factors), and it gives you a causal estimate with a confidence interval.
 
-**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`.
+**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`. **v0.3.x** adds sample-size-adaptive nuisance models for small-book performance. **v0.4.0** adds the `causal_forest` subpackage — heterogeneous treatment effect estimation with formal HTE inference (BLP, GATES, CLAN) and targeting evaluation (RATE/AUTOC).
 
 ---
 
@@ -95,6 +95,77 @@ result = opt.optimise(df, budget_constraint_pct=0.0)  # ENBP-neutral
 ```
 
 The optimiser is designed to produce pricing structures consistent with the FCA PS21/5 ENBP constraint structure. Regulatory compliance with PS21/5 requires governance, audit trail, Board sign-off, and ongoing monitoring that goes beyond any algorithm alone. Do not treat this output as a substitute for those obligations.
+
+### `insurance_causal.causal_forest` — heterogeneous treatment effect estimation (v0.4.0)
+
+Average treatment effects hide enormous heterogeneity in insurance portfolios. A customer with NCD=0 on a PCW may have 3x the price elasticity of a loyal, NCD=5 direct customer. Using the population ATE to set price changes leaves money on the table — and applying the same discount strategy to all customers can inadvertently discriminate under FCA pricing fairness requirements.
+
+The `causal_forest` subpackage estimates per-customer conditional average treatment effects (CATEs) using CausalForestDML (Athey, Tibshirani & Wager 2019), with formal HTE inference via the Chernozhukov et al. (2020/2025) framework.
+
+The workflow:
+1. **Estimate** per-customer CATE with `HeterogeneousElasticityEstimator`
+2. **Test** formally that heterogeneity exists using BLP (Best Linear Predictor)
+3. **Characterise** which segments drive heterogeneity via GATES and CLAN
+4. **Evaluate** whether the CATE ranking produces a valid targeting rule using RATE/AUTOC
+
+```python
+import numpy as np
+from insurance_causal.causal_forest import (
+    HeterogeneousElasticityEstimator,
+    HeterogeneousInference,
+    TargetingEvaluator,
+    make_hte_renewal_data,
+)
+
+# Synthetic UK motor renewal book — 10,000 policies
+df = make_hte_renewal_data(n=10_000, seed=42)
+confounders = ["age", "ncd_years", "vehicle_group", "channel"]
+
+# Step 1: estimate CATEs
+est = HeterogeneousElasticityEstimator(n_estimators=200, catboost_iterations=200)
+est.fit(df, outcome="renewed", treatment="log_price_change", confounders=confounders)
+
+ate, lb, ub = est.ate()
+print(f"ATE: {ate:.3f}  95% CI: [{lb:.3f}, {ub:.3f}]")
+
+cates = est.cate(df)          # per-customer semi-elasticities
+gates = est.gate(df, by="ncd_years")  # group averages by NCD band
+# ncd_years | cate   | ci_lower | ci_upper | n
+# 0         | -0.312 | -0.401   | -0.223   | 1812
+# 5+        | -0.089 | -0.134   | -0.044   | 2108
+
+# Step 2: formal test for heterogeneity (BLP)
+inf = HeterogeneousInference(n_splits=100, k_groups=5)
+result = inf.run(df, estimator=est, cate_proxy=cates)
+print(result.blp.beta_2, result.blp.p_value_beta_2)
+# beta_2 > 0 confirms genuine heterogeneity; p < 0.05 is the threshold.
+result.plot_gates()  # monotone GATE chart by CATE quintile
+
+# Step 3: does the CATE ranking add targeting value? (RATE)
+evaluator = TargetingEvaluator(n_bootstrap=200)
+targeting = evaluator.evaluate(df, estimator=est, method="autoc")
+print(targeting.rate, targeting.p_value)
+# RATE > 0 with p < 0.05: the CATE ranking identifies high-effect customers.
+# If not significant, do not use individual CATEs for targeting.
+targeting.plot_toc()  # TOC curve with bootstrap band
+```
+
+**Key classes:**
+
+- `HeterogeneousElasticityEstimator` — fits CausalForestDML with CatBoost nuisance models, `honest=True` (Athey & Imbens 2016), `min_samples_leaf=20`. Exposes `.cate()`, `.cate_interval()`, `.ate()`, `.gate()`.
+- `HeterogeneousInference` — BLP, GATES, CLAN via 100 repeated data splits (Chernozhukov et al. 2020/2025). `.run()` returns a structured result with `.summary()`, `.plot_gates()`, `.plot_clan()`.
+- `TargetingEvaluator` — RATE and AUTOC (Yadlowsky et al. 2025 JASA) with weighted bootstrap SE. Validates whether the CATE ranking is actionable.
+- `CausalForestDiagnostics` — overlap diagnostics, treatment residual variance check (detects over-partialling), propensity score inspection.
+
+**Installation:**
+
+```bash
+pip install "insurance-causal[all]"   # includes econml
+```
+
+**When to use:** When you want to identify which customer segments respond most to a price change, and you need valid confidence intervals on segment-level effects — not just point estimates from splitting the data. The key questions are: does heterogeneity exist (BLP beta_2 test), which segments drive it (GATES/CLAN), and can you act on it (RATE).
+
+**When NOT to use:** With fewer than ~5,000 policies in the analysis. Below this, CausalForestDML's honest splitting combined with 5-fold cross-fitting leaves too few training observations per tree, and CATE estimates are unreliable. Use the standard `CausalPricingModel` for ATE estimation at small n.
 
 ---
 
