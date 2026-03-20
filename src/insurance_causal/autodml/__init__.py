@@ -21,6 +21,7 @@ Estimands provided
 - Dose-response curve: E[Y(d)] at specified premium levels
 - Policy shift effect: counterfactual impact of raising all premiums by delta%
 - Selection-corrected elasticity: handles renewal selection bias
+- DualSelectionDML: ATE under multivariate ordinal sample selection
 
 References
 ----------
@@ -32,6 +33,8 @@ Hirshberg & Wager (2021) "Augmented minimax linear estimation"
   Annals of Statistics 49(6):3206-3227.
 arXiv:2601.08643 "Automatic debiased machine learning and sensitivity
   analysis for sample selection models."
+Dolgikh & Potanin (2025) "Automatic Debiased Machine Learning under
+  Multivariate Ordinal Sample Selection" arXiv:2511.12640.
 """
 
 from insurance_causal.autodml.dgp import SyntheticContinuousDGP
@@ -43,6 +46,7 @@ from insurance_causal.autodml.policy_shift import PolicyShiftEffect
 from insurance_causal.autodml.selection import SelectionCorrectedElasticity
 from insurance_causal.autodml.report import ElasticityReport
 from insurance_causal.autodml.riesz import ForestRiesz, LinearRiesz
+from insurance_causal.autodml.dual_selection import DualSelectionDML, DualSelectionResult
 from insurance_causal.autodml._types import (
     EstimationResult,
     SegmentResult,
@@ -58,6 +62,7 @@ __all__ = [
     "DoseResponseCurve",
     "PolicyShiftEffect",
     "SelectionCorrectedElasticity",
+    "DualSelectionDML",
     # Reporting
     "ElasticityReport",
     # Riesz regressors (exposed for custom use)
@@ -69,6 +74,7 @@ __all__ = [
     "EstimationResult",
     "SegmentResult",
     "DoseResponseResult",
+    "DualSelectionResult",
     "OutcomeFamily",
     # Utilities
     "adaptive_catboost_params",

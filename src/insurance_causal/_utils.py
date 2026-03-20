@@ -138,10 +138,67 @@ def adaptive_catboost_params(n_samples: int) -> dict:
         }
 
 
+def adaptive_dml_catboost_params(n_samples: int) -> dict:
+    """
+    More aggressive sample-size-adaptive CatBoost params for DoubleML pipelines.
+
+    This is a DML-specific variant with stricter regularisation than
+    ``adaptive_catboost_params``. In DML, over-fitting the nuisance model is
+    particularly harmful: the treatment residual collapses to near-zero variance
+    and the final regression stage can't recover theta.
+
+    Tier design:
+        - n < 2,000:   depth 2, l2=50 — almost linear, prevents any memorisation
+        - n < 10,000:  depth 3, l2=10 — shallow, strong L2
+        - n >= 10,000: depth 6, iterations=500 — standard large-sample settings
+
+    Parameters
+    ----------
+    n_samples : int
+        Total number of observations in the dataset.
+
+    Returns
+    -------
+    dict
+        CatBoost kwargs (no loss_function or random_seed).
+    """
+    if n_samples < 2_000:
+        return {
+            "iterations": 100,
+            "learning_rate": 0.10,
+            "depth": 2,
+            "l2_leaf_reg": 50,
+            "subsample": 0.8,
+            "colsample_bylevel": 0.8,
+            "min_data_in_leaf": 5,
+        }
+    elif n_samples < 10_000:
+        return {
+            "iterations": 200,
+            "learning_rate": 0.08,
+            "depth": 3,
+            "l2_leaf_reg": 10,
+            "subsample": 0.9,
+            "colsample_bylevel": 0.9,
+            "min_data_in_leaf": 5,
+        }
+    else:
+        return {
+            "iterations": 500,
+            "learning_rate": 0.05,
+            "depth": 6,
+            "l2_leaf_reg": 3.0,
+            "subsample": 1.0,
+            "colsample_bylevel": 1.0,
+            "min_data_in_leaf": 1,
+        }
+
+
 def build_catboost_regressor(
     random_state: int = 42,
     n_samples: int | None = None,
     override_params: dict | None = None,
+    nuisance_params: dict | None = None,
 ) -> object:
     """
     Build a CatBoost regressor suitable for DML nuisance estimation.
@@ -162,13 +219,15 @@ def build_catboost_regressor(
     override_params : dict | None
         Any CatBoost params that explicitly override the adaptive defaults.
         Useful for power users who want to tune specific settings.
+    nuisance_params : dict | None
+        Alias for ``override_params`` — accepted for backward compatibility.
 
     Returns a fitted-ready CatBoostRegressor with sklearn API.
     """
     from catboost import CatBoostRegressor
 
     if n_samples is not None:
-        params = adaptive_catboost_params(n_samples)
+        params = adaptive_dml_catboost_params(n_samples)
     else:
         # Backward-compatible defaults: matches pre-0.3.0 behaviour.
         # These are appropriate for large samples (n ≥ 50k).
@@ -179,8 +238,10 @@ def build_catboost_regressor(
             "l2_leaf_reg": 3.0,
         }
 
-    if override_params:
-        params.update(override_params)
+    # nuisance_params is an alias for override_params
+    effective_override = nuisance_params if nuisance_params is not None else override_params
+    if effective_override:
+        params.update(effective_override)
 
     return CatBoostRegressor(
         loss_function="RMSE",
@@ -195,6 +256,7 @@ def build_catboost_classifier(
     random_state: int = 42,
     n_samples: int | None = None,
     override_params: dict | None = None,
+    nuisance_params: dict | None = None,
 ) -> object:
     """
     Build a CatBoost classifier for binary nuisance models (propensity).
@@ -212,11 +274,13 @@ def build_catboost_classifier(
         when provided — same thresholds as ``build_catboost_regressor``.
     override_params : dict | None
         Any CatBoost params that explicitly override the adaptive defaults.
+    nuisance_params : dict | None
+        Alias for ``override_params`` — accepted for backward compatibility.
     """
     from catboost import CatBoostClassifier
 
     if n_samples is not None:
-        params = adaptive_catboost_params(n_samples)
+        params = adaptive_dml_catboost_params(n_samples)
     else:
         params = {
             "iterations": 500,
@@ -225,8 +289,9 @@ def build_catboost_classifier(
             "l2_leaf_reg": 3.0,
         }
 
-    if override_params:
-        params.update(override_params)
+    effective_override = nuisance_params if nuisance_params is not None else override_params
+    if effective_override:
+        params.update(effective_override)
 
     return CatBoostClassifier(
         loss_function="Logloss",
