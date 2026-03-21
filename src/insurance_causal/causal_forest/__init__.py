@@ -19,6 +19,7 @@ The workflow:
 3. Characterise which segments drive heterogeneity (GATES, CLAN).
 4. Evaluate whether the CATE estimates produce a good targeting rule (RATE/AUTOC).
 5. Diagnose data quality issues (overlap, residual variation) with CausalForestDiagnostics.
+6. Discover data-driven subgroups via CausalClusteringAnalyzer.
 
 Quick start
 -----------
@@ -27,6 +28,7 @@ Quick start
 ...     HeterogeneousInference,
 ...     TargetingEvaluator,
 ...     CausalForestDiagnostics,
+...     CausalClusteringAnalyzer,
 ...     make_hte_renewal_data,
 ... )
 >>> df = make_hte_renewal_data(n=10_000)
@@ -75,6 +77,10 @@ from insurance_causal.causal_forest.data import (
     make_hte_renewal_data,
     true_cate_by_ncd,
 )
+from insurance_causal.causal_forest.clustering import (
+    CausalClusteringAnalyzer,
+    ClusteringResult,
+)
 
 __all__ = [
     # Core estimator
@@ -91,6 +97,9 @@ __all__ = [
     # Diagnostics
     "CausalForestDiagnostics",
     "DiagnosticsReport",
+    # Clustering
+    "CausalClusteringAnalyzer",
+    "ClusteringResult",
     # Exposure weighting
     "build_exposure_weighted_nuisances",
     "prepare_rate_outcome",
