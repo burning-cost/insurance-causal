@@ -8,6 +8,8 @@ Causal inference for insurance pricing, built on Double Machine Learning.
 
 Merged from: `insurance-causal` (core DML), `insurance-autodml` (Riesz representer continuous treatment), and `insurance-elasticity` (FCA renewal pricing optimisation).
 
+**Blog post:** [DML for Insurance: Practical Benchmarks and Pitfalls](https://burning-cost.github.io/2026/03/09/dml-insurance-benchmarks/)
+
 ---
 
 Every UK pricing team has the same argument in some form: "Is this factor causing the claims, or is it a proxy for something else?" For telematics, is harsh braking causing accidents or is it just correlated with urban driving? For renewal pricing, is the price increase causing lapse or are the customers receiving large increases systematically more likely to lapse anyway?
@@ -188,6 +190,8 @@ pip install "insurance-causal[all]"
 ```
 
 Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`, `joblib`.
+
+> 💬 Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal/discussions). Found it useful? A ⭐ helps others find it.
 
 ---
 
