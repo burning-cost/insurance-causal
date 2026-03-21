@@ -162,7 +162,7 @@ targeting.plot_toc()  # TOC curve with bootstrap band
 **Installation:**
 
 ```bash
-pip install "insurance-causal[all]"   # includes econml
+uv add "insurance-causal[all]"   # includes econml
 ```
 
 **When to use:** When you want to identify which customer segments respond most to a price change, and you need valid confidence intervals on segment-level effects — not just point estimates from splitting the data. The key questions are: does heterogeneity exist (BLP beta_2 test), which segments drive it (GATES/CLAN), and can you act on it (RATE).
@@ -174,19 +174,19 @@ pip install "insurance-causal[all]"   # includes econml
 ## Installation
 
 ```bash
-pip install insurance-causal
+uv add insurance-causal
 ```
 
 For the elasticity subpackage (requires econML):
 
 ```bash
-pip install "insurance-causal[elasticity]"
+uv add "insurance-causal[elasticity]"
 ```
 
 For all optional dependencies:
 
 ```bash
-pip install "insurance-causal[all]"
+uv add "insurance-causal[all]"
 ```
 
 Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`, `joblib`.
@@ -466,7 +466,7 @@ The result also exposes `silhouette_score`, `within_cluster_cate_var`, and `betw
 **Installation.** `CausalClusteringAnalyzer` is part of the `causal_forest` subpackage:
 
 ```bash
-pip install "insurance-causal[causal_forest]"
+uv add "insurance-causal[causal_forest]"
 ```
 
 ---
