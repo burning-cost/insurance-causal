@@ -774,10 +774,10 @@ value — the CLAN results show this maps to age and urban classification as exp
 
 ## Related Libraries
 
-| Library | What it does |
+| Library | Description |
 |---------|-------------|
-| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — causal inference establishes whether a rating factor genuinely drives risk or proxies a protected characteristic |
 | [insurance-causal-policy](https://github.com/burning-cost/insurance-causal-policy) | SDID-based causal evaluation of rate changes — the policy-evaluation complement to this library's treatment-effect estimation |
+| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — causal inference establishes whether a rating factor genuinely drives risk or proxies a protected characteristic |
 | [insurance-interactions](https://github.com/burning-cost/insurance-interactions) | GLM interaction detection — identifies structural gaps in the model that DML can help attribute causally |
 
 ## Licence
