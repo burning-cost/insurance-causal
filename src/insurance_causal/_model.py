@@ -22,8 +22,8 @@ The key steps under the hood:
    from the DoubleML object.
 
 5. Optionally compute CATE by segment by splitting the data and returning
-   per-segment ATE estimates. Full nonparametric CATE via causal forest is
-   not yet implemented (it requires EconML; planned for v0.2).
+   per-segment ATE estimates. Full nonparametric CATE via CausalForestDML
+   (EconML) is implemented and available since v0.4.0.
 """
 
 from __future__ import annotations
