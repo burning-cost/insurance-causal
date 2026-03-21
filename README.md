@@ -18,7 +18,7 @@ Double Machine Learning (DML), introduced by Chernozhukov et al. (2018), solves 
 
 `insurance-causal` wraps [DoubleML](https://docs.doubleml.org/) with an interface designed for pricing actuaries. You specify the treatment (price change, channel flag, telematics score) and the confounders (rating factors), and it gives you a causal estimate with a confidence interval.
 
-**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`. **v0.3.x** adds sample-size-adaptive nuisance models for small-book performance. **v0.4.0** adds the `causal_forest` subpackage — heterogeneous treatment effect estimation with formal HTE inference (BLP, GATES, CLAN) and targeting evaluation (RATE/AUTOC).
+**v0.2.0 adds two subpackages**: `autodml` (Automatic Debiased ML via Riesz Representers for continuous treatments) and `elasticity` (renewal pricing optimisation using causal forests), previously the standalone libraries `insurance-autodml` and `insurance-elasticity`. **v0.3.x** adds sample-size-adaptive nuisance models for small-book performance. **v0.4.0** adds the `causal_forest` subpackage — heterogeneous treatment effect estimation with formal HTE inference (BLP, GATES, CLAN) and targeting evaluation (RATE/AUTOC). **v0.5.0 adds** `clustering` — forest-kernel spectral clustering for CATE subgroup discovery without requiring a pre-specified segmentation variable.
 
 ---
 
@@ -389,6 +389,84 @@ cate = cate_by_decile(model, df, score_col="predicted_frequency", n_deciles=10)
 ```
 
 ---
+
+
+## Causal clustering (v0.5.0)
+
+GATES and `cate_by_segment` both require you to nominate a segmentation variable upfront. That works when you already know the heterogeneity maps onto age band or NCD group. It does not work when heterogeneity is driven by an interaction — young urban aggregator customers with zero NCD are a very different risk profile from young rural direct customers, and neither "age" nor "channel" alone reveals this.
+
+`CausalClusteringAnalyzer` uses the causal forest's own kernel to define similarity. Two policyholders are similar if they fall in the same leaf across a large fraction of the forest's trees (the proximity matrix, Wager & Athey 2018). Spectral clustering on this matrix finds subgroups with internally consistent treatment effects, without requiring you to specify which variable drives the heterogeneity. The number of clusters is chosen automatically via eigengap unless you override it.
+
+Per-cluster ATEs use AIPW pseudo-outcomes — doubly-robust: correct if either the outcome model or the propensity model is well-specified. Bootstrap confidence intervals are reported alongside mean CATE per cluster.
+
+```python
+from insurance_causal.causal_forest import (
+    HeterogeneousElasticityEstimator,
+    CausalClusteringAnalyzer,
+    make_hte_renewal_data,
+)
+
+df = make_hte_renewal_data(n=15_000, seed=42)
+confounders = ["age", "ncd_years", "vehicle_group", "channel"]
+
+# Fit the causal forest first — reuse across multiple analyses
+est = HeterogeneousElasticityEstimator(n_estimators=200, catboost_iterations=300)
+est.fit(df, outcome="renewed", treatment="log_price_change", confounders=confounders)
+cates = est.cate(df)
+
+# Find clusters — k chosen automatically via eigengap
+ca = CausalClusteringAnalyzer(n_bootstrap=500)
+ca.fit(df, estimator=est, cates=cates, confounders=confounders)
+print(ca.summary())
+```
+
+Example output (`ca.summary()` returns a polars DataFrame):
+
+```
+shape: (4, 7)
+┌─────────┬───────┬───────────┬───────────┬──────────────┬──────────────┬───────┐
+│ cluster ┆ n     ┆ cate_mean ┆ ate_aipw  ┆ ate_ci_lower ┆ ate_ci_upper ┆ share │
+│ ---     ┆ ---   ┆ ---       ┆ ---       ┆ ---          ┆ ---          ┆ ---   │
+│ i32     ┆ i32   ┆ f64       ┆ f64       ┆ f64          ┆ f64          ┆ f64   │
+╞═════════╪═══════╪═══════════╪═══════════╪══════════════╪══════════════╪═══════╡
+│ 0       ┆ 4312  ┆ -0.082    ┆ -0.085    ┆ -0.110       ┆ -0.054       ┆ 0.288 │
+│ 1       ┆ 3187  ┆ -0.234    ┆ -0.231    ┆ -0.289       ┆ -0.178       ┆ 0.212 │
+│ 2       ┆ 3971  ┆ -0.410    ┆ -0.408    ┆ -0.478       ┆ -0.343       ┆ 0.265 │
+│ 3       ┆ 3530  ┆ -0.115    ┆ -0.118    ┆ -0.145       ┆ -0.086       ┆ 0.235 │
+└─────────┴───────┴───────────┴───────────┴──────────────┴──────────────┴───────┘
+```
+
+Inspect covariate means per cluster to understand what drives the segmentation:
+
+```python
+print(ca.profile(df, confounders))
+```
+
+Check the suggested k before fitting to inspect the eigengap heuristic:
+
+```python
+k_suggested = ca.suggest_n_clusters(df, estimator=est, cates=cates, confounders=confounders)
+print(f"Suggested k: {k_suggested}")
+
+# Override with a specific k if the eigengap is ambiguous
+ca_k4 = CausalClusteringAnalyzer(n_clusters=4, n_bootstrap=500)
+ca_k4.fit(df, estimator=est, cates=cates, confounders=confounders)
+```
+
+The result also exposes `silhouette_score`, `within_cluster_cate_var`, and `between_cluster_cate_var` on `ca._result` for cluster quality diagnostics. A high `between_cluster_cate_var` relative to `within_cluster_cate_var` means the clusters are genuinely separating the heterogeneity.
+
+**Kernel choice.** The default `kernel_type="forest"` uses the causal forest leaf-proximity kernel, which captures heterogeneity structure in the causal feature space. `kernel_type="rbf"` and `kernel_type="linear"` operate directly on the confounder matrix and serve as baselines — useful for checking whether the forest kernel is actually adding value over standard demographic segmentation.
+
+**Scalability.** For n > 10,000, a warning is emitted and the kernel is computed on a 5,000-observation subsample. The remaining observations are assigned to clusters via nearest-neighbour. This is an approximation — cluster boundaries may shift slightly relative to the full-data solution.
+
+**Installation.** `CausalClusteringAnalyzer` is part of the `causal_forest` subpackage:
+
+```bash
+pip install "insurance-causal[causal_forest]"
+```
+
+---
+
 
 ## Sensitivity analysis
 
