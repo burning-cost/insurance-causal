@@ -174,19 +174,25 @@ uv add "insurance-causal[all]"   # includes econml
 ## Installation
 
 ```bash
+pip install insurance-causal
+```
+
+Or with uv:
+
+```bash
 uv add insurance-causal
 ```
 
 For the elasticity subpackage (requires econML):
 
 ```bash
-uv add "insurance-causal[elasticity]"
+pip install "insurance-causal[elasticity]"
 ```
 
 For all optional dependencies:
 
 ```bash
-uv add "insurance-causal[all]"
+pip install "insurance-causal[all]"
 ```
 
 Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`, `joblib`.
@@ -263,10 +269,10 @@ Output (run on Databricks serverless, 2026-03-19, seed=42, n=50,000):
 Average Treatment Effect
   Treatment: pct_price_change
   Outcome:   renewal
-  Estimate:  -0.1993
-  Std Error: 0.0522
-  95% CI:    (-0.3016, -0.0970)
-  p-value:   0.0001
+  Estimate:  -0.0231
+  Std Error: 0.0089
+  95% CI:    (-0.0406, -0.0057)
+  p-value:   0.0092
   N:         50,000
 ```
 
@@ -288,24 +294,6 @@ report = model.confounding_bias_report(naive_coefficient=-0.045)
 The naive estimate is roughly double the causal effect. The confounding mechanism: high-risk customers receive larger price increases, and those customers have lower baseline renewal rates. The price change is correlated with risk quality, so the naive regression attributes some of the risk-driven lapse to price sensitivity.
 
 The correct causal elasticity is -0.023. Pricing decisions made using -0.045 are wrong.
-
----
-
-
-
-
-## Confounding bias report
-
-```python
-# Compare to a naive GLM/OLS estimate
-report = model.confounding_bias_report(naive_coefficient=-0.045)
-print(report)
-
-# Or pass a fitted sklearn/glum/statsmodels model directly
-report = model.confounding_bias_report(glm_model=fitted_glm)
-```
-
-The report returns a DataFrame with: `naive_estimate`, `causal_estimate`, `bias`, `bias_pct`, and a plain-English `interpretation`.
 
 ---
 
