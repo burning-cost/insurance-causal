@@ -37,6 +37,13 @@ Dolgikh & Potanin (2025) "Automatic Debiased Machine Learning under
   Multivariate Ordinal Sample Selection" arXiv:2511.12640.
 """
 
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("insurance-causal")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
+
 from insurance_causal.autodml.dgp import SyntheticContinuousDGP
 from insurance_causal.autodml._nuisance import adaptive_catboost_params
 from insurance_causal.autodml._crossfit import validate_inputs
@@ -53,8 +60,6 @@ from insurance_causal.autodml._types import (
     DoseResponseResult,
     OutcomeFamily,
 )
-
-from .. import __version__
 
 __all__ = [
     # Main estimators

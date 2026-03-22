@@ -228,7 +228,8 @@ class ElasticityReport:
         html : str
             Rendered HTML string.
         """
-        from insurance_causal.autodml import __version__
+        from importlib.metadata import version as _pkg_version
+        __version__ = _pkg_version("insurance-causal")
 
         r = self._result
         p = r.pvalue
@@ -277,7 +278,8 @@ class ElasticityReport:
         data : dict
             Report data suitable for downstream consumption.
         """
-        from insurance_causal.autodml import __version__
+        from importlib.metadata import version as _pkg_version
+        __version__ = _pkg_version("insurance-causal")
 
         r = self._result
         data = {

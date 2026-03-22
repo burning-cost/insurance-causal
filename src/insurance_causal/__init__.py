@@ -86,6 +86,13 @@ Athey, Tibshirani & Wager (2019). "Generalized Random Forests."
     Annals of Statistics 47(2): 1148-1178.
 """
 
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("insurance-causal")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # not installed
+
 from ._model import CausalPricingModel, AverageTreatmentEffect
 from . import treatments
 from . import diagnostics
@@ -102,10 +109,3 @@ __all__ = [
     "elasticity",
     "causal_forest",
 ]
-
-from importlib.metadata import version, PackageNotFoundError
-
-try:
-    __version__ = version("insurance-causal")
-except PackageNotFoundError:
-    __version__ = "0.0.0"  # not installed
