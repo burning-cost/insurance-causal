@@ -74,10 +74,11 @@ dev = [
 ]
 
 [project.urls]
+Homepage = "https://burning-cost.github.io/insurance-causal"
 Repository = "https://github.com/burning-cost/insurance-causal"
-Issues = "https://github.com/burning-cost/insurance-causal/issues"
-Homepage = "https://github.com/burning-cost/insurance-causal"
+Changelog = "https://github.com/burning-cost/insurance-causal/releases"
 Documentation = "https://burning-cost.github.io/insurance-causal"
+Issues = "https://github.com/burning-cost/insurance-causal/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_causal"]
