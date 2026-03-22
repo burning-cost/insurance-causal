@@ -188,6 +188,15 @@ class CausalPricingModel:
         random_state: int = 42,
         _segment_iterations: int | None = None,
     ) -> None:
+        _valid_outcomes = ("continuous", "binary", "poisson", "gamma")
+        if outcome_type not in _valid_outcomes:
+            raise ValueError(
+                f"outcome_type must be one of {_valid_outcomes}, got {outcome_type!r}"
+            )
+        if not isinstance(cv_folds, int) or cv_folds < 2:
+            raise ValueError(
+                f"cv_folds must be an integer >= 2, got {cv_folds!r}"
+            )
         self.outcome = outcome
         self.outcome_type = outcome_type
         self.treatment = treatment
