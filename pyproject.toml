@@ -7,7 +7,7 @@ name = "insurance-causal"
 version = "0.5.0"
 description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, causal price elasticity, and heterogeneous treatment effects."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
 keywords = [
