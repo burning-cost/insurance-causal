@@ -103,4 +103,9 @@ __all__ = [
     "causal_forest",
 ]
 
-__version__ = "0.5.0"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("insurance-causal")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # not installed
