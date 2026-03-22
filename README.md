@@ -197,7 +197,7 @@ pip install "insurance-causal[all]"
 
 Core dependencies: `doubleml`, `catboost`, `polars`, `pandas`, `scikit-learn`, `scipy`, `numpy`, `joblib`.
 
-> 💬 Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal/discussions). Found it useful? A ⭐ helps others find it.
+> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal/discussions). Found it useful? A star helps others find it.
 
 ---
 
