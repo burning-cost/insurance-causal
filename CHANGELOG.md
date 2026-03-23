@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.5.1 (2026-03-23)
+- fix: bump doubleml floor to >=0.10.0 — older versions used check_X_y(force_all_finite=...) which was removed in scikit-learn 1.8; doubleml 0.10.0+ is compatible
+
 ## v0.5.0 (2026-03-22) [unreleased]
 - Remove emoji from discussion CTA
 - Rebuild benchmarks: stronger confounding in DML, GLM interaction baseline for causal forest
@@ -63,4 +66,3 @@
 - Clean up README: remove em dashes and drop LightGBM/XGBoost mentions
 - Fix test compatibility issues found during Databricks CI
 - Initial release of insurance-causal v0.1.0
-
