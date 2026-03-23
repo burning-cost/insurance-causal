@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.5.3 (2026-03-23)
+- fix: pin scipy<1.16 — scipy 1.16 removed `_lazywhere` which statsmodels still imports via doubleml, causing ImportError on fresh install
+
 ## v0.5.1 (2026-03-23)
 - fix: bump doubleml floor to >=0.10.0 — older versions used check_X_y(force_all_finite=...) which was removed in scikit-learn 1.8; doubleml 0.10.0+ is compatible
 
