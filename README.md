@@ -24,6 +24,14 @@ Subpackages: `autodml` (Riesz representer continuous treatment), `elasticity` (F
 
 ---
 
+## Why use this?
+
+- Every UK renewal and telematics pricing decision relies on a coefficient that measures correlation, not causation — pricing teams know this but have no practical tool to do better. Double Machine Learning gives valid frequentist causal estimates from your existing portfolio data, without a randomised trial.
+- Fixes confounding bias that naive GLMs carry silently: on a 50,000-policy synthetic motor book, a GLM price-sensitivity estimate of −0.045 reduces to a causal estimate of −0.023 once confounding is removed — a pricing decision made on the GLM number is wrong by ~96%.
+- Wraps DoubleML with an interface built for actuaries: you specify treatment (price change, telematics score, channel flag) and confounders (rating factors), it gives you an estimate with a confidence interval and a confounding bias report.
+- Supports FCA PS21/5 renewal pricing optimisation via the elasticity subpackage, with ENBP constraint structure and per-customer CATE estimates from causal forests — identifies which customer segments respond most to a price change with formal heterogeneity tests (BLP, GATES, AUTOC).
+- Handles the practical insurance constraints: CatBoost nuisance models with sample-size-adaptive capacity (prevents over-partialling on small books), Polars-native, and runs on Databricks serverless.
+
 ## Subpackages
 
 ### `insurance_causal.autodml` — Riesz representer-based continuous treatment estimation
