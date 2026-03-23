@@ -286,6 +286,18 @@ Average Treatment Effect
 
 ---
 
+## Expected Performance
+
+On a 50,000-policy synthetic UK motor book with multiplicative confounding (age x NCB x region interaction driving both pricing decisions and renewal probability):
+
+- Naive GLM overestimates the treatment effect by 50-90% in confounded segments, and its 95% CI does not cover the true effect
+- DML reduces bias to 10-20% of the true effect with valid confidence intervals that cover the true value
+- Per-policy CATE estimates from `causal_forest` enable individual targeting vs segment averages, with formal heterogeneity tests (BLP, GATES, AUTOC)
+
+The confounding mechanism: high-risk customers receive larger price increases and have lower baseline renewal rates independently of price. A GLM with main effects sees both effects superimposed and overstates price sensitivity. CatBoost nuisance models in the DML step recover the multiplicative interaction and partial it out.
+
+Run `uv run python benchmarks/run_benchmark.py` or import `notebooks/databricks_validation.py` into Databricks for the full comparison.
+
 ## The killer feature: confounding bias report
 
 A pricing team has a GLM coefficient on price change of -0.045. This is the naive estimate: price sensitivity looks very high. They fit DML and get:
