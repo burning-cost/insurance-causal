@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal"
-version = "0.5.2"
+version = "0.5.3"
 description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, causal price elasticity, and heterogeneous treatment effects."
 readme = "README.md"
 license = "MIT"
@@ -39,7 +39,7 @@ dependencies = [
     "pyarrow>=12.0",
     # doubleml 0.9.x requires scikit-learn>=1.4,<1.6 — pin to avoid breakage
     "scikit-learn>=1.4,<1.6",
-    "scipy>=1.12",
+    "scipy>=1.12,<1.16",
     "doubleml>=0.9.0",
     "catboost>=1.2",
     "joblib>=1.3",
