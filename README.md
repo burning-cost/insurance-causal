@@ -24,6 +24,10 @@ Subpackages: `autodml` (Riesz representer continuous treatment), `elasticity` (F
 
 ---
 
+## Part of the Burning Cost stack
+
+Takes observational pricing or claims data — no randomised trial required. Feeds causal elasticity estimates and CATEs into [insurance-optimise](https://github.com/burning-cost/insurance-optimise) (segmented rate optimisation) and [insurance-fairness](https://github.com/burning-cost/insurance-fairness) (causal bias detection vs correlation-based proxy detection). → [See the full stack](https://burning-cost.github.io/stack/)
+
 ## Why use this?
 
 - Every UK renewal and telematics pricing decision relies on a coefficient that measures correlation, not causation — pricing teams know this but have no practical tool to do better. Double Machine Learning gives valid frequentist causal estimates from your existing portfolio data, without a randomised trial.
