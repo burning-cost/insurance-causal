@@ -3,21 +3,106 @@ message: "If you use this software, please cite it as below."
 type: software
 title: "insurance-causal"
 abstract: >
-  Causal inference for insurance pricing using Double Machine Learning (DML).
-  Separates causal effects from confounding bias in pricing data, with
-  CatBoost nuisance models and structured confounding bias reports for
-  UK pricing teams and FCA evidence packs.
+  Causal inference for insurance pricing built on Double Machine Learning (DML).
+  Estimates causal treatment effects from observational data using ML nuisance
+  models with Neyman-orthogonal scores. Covers partially linear regression,
+  continuous treatment via Riesz representers, causal forests with
+  BLP/GATES/CLAN/AUTOC heterogeneity inference, and FCA PS21/5 renewal pricing
+  optimisation with ENBP constraints.
 authors:
-  - name: "Burning Cost"
-    website: "https://burning-cost.github.io"
+  - name: "Burning Cost Contributors"
+url: "https://github.com/burning-cost/insurance-causal"
 repository-code: "https://github.com/burning-cost/insurance-causal"
 license: MIT
+version: "0.5.2"
+date-released: "2026-03-21"
 keywords:
-  - insurance-pricing
+  - insurance
+  - causal inference
+  - double machine learning
+  - price elasticity
   - actuarial
-  - causal-inference
-  - double-machine-learning
-  - dml
-  - catboost
-  - confounding-bias
-  - fca
+references:
+  - type: article
+    title: "Double/Debiased Machine Learning for Treatment and Structural Parameters"
+    authors:
+      - family-names: Chernozhukov
+        given-names: Victor
+      - family-names: Chetverikov
+        given-names: Denis
+      - family-names: Demirer
+        given-names: Mert
+      - family-names: Duflo
+        given-names: Esther
+      - family-names: Hansen
+        given-names: Christian
+      - family-names: Newey
+        given-names: Whitney
+      - family-names: Robins
+        given-names: James
+    journal: "The Econometrics Journal"
+    volume: 21
+    issue: 1
+    start: C1
+    end: C68
+    year: 2018
+    doi: "10.1111/ectj.12097"
+  - type: article
+    title: "Automatic Debiased Machine Learning of Causal and Structural Effects"
+    authors:
+      - family-names: Chernozhukov
+        given-names: Victor
+      - family-names: Newey
+        given-names: Whitney K.
+      - family-names: Singh
+        given-names: Rahul
+      - family-names: Syrgkanis
+        given-names: Vasilis
+    journal: "Econometrica"
+    volume: 90
+    issue: 3
+    start: 967
+    end: 1027
+    year: 2022
+    doi: "10.3982/ECTA18515"
+  - type: article
+    title: "Generic Machine Learning Inference on Heterogeneous Treatment Effects in Randomized Experiments"
+    authors:
+      - family-names: Chernozhukov
+        given-names: Victor
+      - family-names: Demirer
+        given-names: Mert
+      - family-names: Duflo
+        given-names: Esther
+      - family-names: Hansen
+        given-names: Christian
+    year: 2020
+    url: "https://arxiv.org/abs/1712.04802"
+  - type: article
+    title: "A causal inference approach to measure price elasticity in automobile insurance"
+    authors:
+      - family-names: Guelman
+        given-names: Leo
+      - family-names: Guillen
+        given-names: Montserrat
+    journal: "Expert Systems with Applications"
+    volume: 41
+    issue: 2
+    start: 387
+    end: 396
+    year: 2014
+    doi: "10.1016/j.eswa.2013.07.059"
+  - type: article
+    title: "Making Sense of Sensitivity: Extending Omitted Variable Bias"
+    authors:
+      - family-names: Cinelli
+        given-names: Carlos
+      - family-names: Hazlett
+        given-names: Chad
+    journal: "Journal of the Royal Statistical Society: Series B"
+    volume: 82
+    issue: 1
+    start: 39
+    end: 67
+    year: 2020
+    doi: "10.1111/rssb.12348"
