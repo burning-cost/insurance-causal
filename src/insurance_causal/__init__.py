@@ -33,6 +33,13 @@ causal_forest
     Key classes: HeterogeneousElasticityEstimator, HeterogeneousInference,
     TargetingEvaluator, CausalForestDiagnostics.
 
+rate_change
+    Post-hoc causal evaluation of insurance rate changes using DiD and ITS.
+    Answers: 'We changed rates on segment X in January. What actually happened
+    to conversion and loss ratio?'
+    Key classes: RateChangeEvaluator.
+    Key functions: make_rate_change_data.
+
 Quick start
 -----------
 >>> from insurance_causal import CausalPricingModel
@@ -71,6 +78,18 @@ Quick start
 >>> est.fit(df, confounders=["age", "ncd_years", "channel"])
 >>> cates = est.cate(df)
 
+# Rate change evaluation subpackage
+>>> from insurance_causal.rate_change import RateChangeEvaluator, make_rate_change_data
+>>> df = make_rate_change_data(n_segments=40, true_att=-0.05, seed=0)
+>>> evaluator = RateChangeEvaluator(
+...     outcome_col='outcome',
+...     treatment_period=9,
+...     unit_col='segment',
+...     weight_col='earned_exposure',
+... )
+>>> result = evaluator.fit(df)
+>>> print(result.summary())
+
 References
 ----------
 Chernozhukov, V. et al. (2018). "Double/Debiased Machine Learning for
@@ -84,6 +103,12 @@ and Structural Effects" Econometrica 90(3):967-1027.
 
 Athey, Tibshirani & Wager (2019). "Generalized Random Forests."
     Annals of Statistics 47(2): 1148-1178.
+
+Callaway, B. & Sant'Anna, P.H.C. (2021). "Difference-in-Differences with
+    Multiple Time Periods." Journal of Econometrics 225(2): 200-230.
+
+Goodman-Bacon, A. (2021). "Difference-in-differences with variation in
+    treatment timing." Journal of Econometrics 225(2): 254-277.
 """
 
 from importlib.metadata import version, PackageNotFoundError
@@ -99,6 +124,8 @@ from . import diagnostics
 from . import autodml
 from . import elasticity
 from . import causal_forest
+from . import rate_change
+from .rate_change import RateChangeEvaluator, make_rate_change_data
 
 __all__ = [
     "CausalPricingModel",
@@ -108,4 +135,7 @@ __all__ = [
     "autodml",
     "elasticity",
     "causal_forest",
+    "rate_change",
+    "RateChangeEvaluator",
+    "make_rate_change_data",
 ]
