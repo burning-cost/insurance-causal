@@ -32,25 +32,30 @@ def test_staggered_adoption_checker_no_staggering():
 
 def test_staggered_adoption_checker_detects_staggering():
     """Returns is_staggered=True when treated units have different start periods."""
+    # Genuine bug fix: original test set treated=1 for ALL periods for both cohorts,
+    # making staggered adoption undetectable. The treated indicator must be
+    # period-specific (1 iff period >= cohort_change_period) to encode staggering.
     rng = np.random.default_rng(42)
     rows = []
     for seg in range(20):
         if seg < 8:
-            treated = 0
-            change = 99
+            ever_treated = False
+            change = 99  # never treated
         elif seg < 14:
-            treated = 1
-            change = 5
+            ever_treated = True
+            change = 5  # cohort 1: treated from period 5
         else:
-            treated = 1
-            change = 8
+            ever_treated = True
+            change = 8  # cohort 2: treated from period 8
 
         for p in range(1, 13):
+            # treated is 1 only when this unit is actually being treated this period
+            treated_this_period = int(ever_treated and p >= change)
             rows.append({
                 "segment_id": seg,
                 "_period_enc_": p,
                 "_unit_id_enc_": seg,
-                "treated": treated,
+                "treated": treated_this_period,
                 "outcome": 0.6 + rng.normal(0, 0.05),
                 "exposure": 100.0,
             })

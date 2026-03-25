@@ -666,13 +666,15 @@ class RateChangeEvaluator:
         if is_multi_row or has_unit:
             df_ts = self._aggregate_to_period(df_work)
         else:
+            # df_work already has _period_enc_ added by fit(); copy directly.
+            # Do NOT rename period_col to _period_enc_ here — that would create
+            # a duplicate column since _period_enc_ already exists in df_work.
             df_ts = df_work.copy()
-            df_ts = df_ts.rename(columns={self.period_col: "_period_enc_"}) \
-                if self.period_col != "_period_enc_" else df_ts
 
-        # Rename period_col to _period_enc_ for consistency
-        if self.period_col in df_ts.columns and "_period_enc_" not in df_ts.columns:
-            df_ts["_period_enc_"] = df_ts[self.period_col]
+        # Ensure _period_enc_ exists (guard for edge cases)
+        if "_period_enc_" not in df_ts.columns:
+            if self.period_col in df_ts.columns:
+                df_ts["_period_enc_"] = df_ts[self.period_col]
 
         # Quarter column
         if "quarter" not in df_ts.columns:

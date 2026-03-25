@@ -198,7 +198,7 @@ class RateChangeResult:
     method_detail: "DiDResult | ITSResult"
 
     def __str__(self) -> str:
-        method_label = self.method.upper()
+        method_label = "DiD" if self.method == "did" else self.method.upper()
         title = f"Rate Change Evaluation ({method_label})"
         sep = "=" * len(title)
 
