@@ -69,21 +69,23 @@ def test_did_warns_staggered_adoption():
     rows = []
     for seg in range(n_segs):
         if seg < 5:
-            treated = 0
+            ever_treated = False
             change = 99  # never
         elif seg < 12:
-            treated = 1
+            ever_treated = True
             change = 5  # cohort A: treated from period 5
         else:
-            treated = 1
+            ever_treated = True
             change = 7  # cohort B: treated from period 7
 
         for period in range(1, n_periods + 1):
-            effect = -0.03 if (treated == 1 and period >= change) else 0.0
+            # treated indicator is 1 only from the segment's actual change period
+            is_treated = int(ever_treated and period >= change)
+            effect = -0.03 if is_treated else 0.0
             rows.append({
                 "segment_id": seg,
                 "period": period,
-                "treated": treated,
+                "treated": is_treated,
                 "loss_ratio": 0.65 + effect + rng.normal(0, 0.05),
                 "exposure": rng.lognormal(0, 0.3) * 100,
             })

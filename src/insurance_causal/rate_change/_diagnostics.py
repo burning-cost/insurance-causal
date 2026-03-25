@@ -230,8 +230,11 @@ class StaggeredAdoptionChecker:
             # No unit column — can't detect staggered adoption reliably
             return False, []
 
+        # Find first period where treated==1 for each unit.
+        # Do NOT filter by >= change_period — the whole point is to detect
+        # units that were treated at different times.
         first_treatment = (
-            treated_df[treated_df[period_col] >= change_period]
+            treated_df
             .groupby(unit_col)[period_col]
             .min()
         )
