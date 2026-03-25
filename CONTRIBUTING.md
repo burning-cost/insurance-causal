@@ -40,3 +40,7 @@ uv run pytest --run-slow
 - The `DoubleMLEstimator` interface is the primary public API; keep it stable
 
 If you are adding a new estimator or treatment effect variant, include a reference to the methodological source and a note on when a pricing actuary would choose this variant over the default.
+
+---
+
+For questions or to discuss ideas before opening an issue, start a [Discussion](https://github.com/burning-cost/insurance-causal/discussions).
