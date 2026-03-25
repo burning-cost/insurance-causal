@@ -20,7 +20,7 @@ Double Machine Learning (DML), introduced by Chernozhukov et al. (2018), solves 
 
 `insurance-causal` wraps [DoubleML](https://docs.doubleml.org/) with an interface designed for pricing actuaries. You specify the treatment (price change, channel flag, telematics score) and the confounders (rating factors), and it gives you a causal estimate with a confidence interval.
 
-Subpackages: `autodml` (Riesz representer continuous treatment), `elasticity` (FCA renewal pricing optimisation), `causal_forest` (heterogeneous effects with BLP/GATES/CLAN inference and RATE/AUTOC targeting evaluation), `clustering` (forest-kernel spectral clustering for CATE subgroup discovery).
+Subpackages: `autodml` (Riesz representer continuous treatment), `elasticity` (FCA renewal pricing optimisation), `causal_forest` (heterogeneous effects with BLP/GATES/CLAN inference and RATE/AUTOC targeting evaluation), `clustering` (forest-kernel spectral clustering for CATE subgroup discovery), `rate_change` (post-hoc causal evaluation of historical rate changes via DiD and ITS).
 
 ---
 
@@ -480,6 +480,100 @@ The result also exposes `silhouette_score`, `within_cluster_cate_var`, and `betw
 ```bash
 uv add "insurance-causal[causal_forest]"
 ```
+
+---
+
+
+## Rate change evaluation (v0.6.0)
+
+DML and causal forests answer a forward-looking question: given the data we have, what is the causal effect of treatment? The `rate_change` sub-package answers a different question: we implemented a rate change six months ago -- did it work, and by how much?
+
+This is post-hoc causal evaluation. The methods -- Difference-in-Differences and Interrupted Time Series -- are standard in policy evaluation and health econometrics. The insurance application has specific wrinkles: loss ratios are exposure-weighted, treatment selection is correlated with risk quality (segments with deteriorating loss ratios get larger rate increases), and the usual parallel trends assumption needs checking against UK market shocks such as the Ogden rate change or whiplash reform.
+
+`RateChangeEvaluator` handles both methods through a single interface. It selects DiD automatically when a control group is present (segments or territories that did not receive the rate change), and falls back to ITS when the entire book was treated simultaneously.
+
+```python
+from insurance_causal.rate_change import RateChangeEvaluator, make_rate_change_data
+
+# Synthetic panel: 10,000 policies, 12 quarters, rate change in Q7
+# treated=1 for segments that received a 10% rate increase
+df = make_rate_change_data(n_policies=10_000, true_att=-0.03, seed=42)
+
+evaluator = RateChangeEvaluator(
+    method="auto",           # DiD if control group present, ITS otherwise
+    outcome_col="loss_ratio",
+    period_col="period",
+    treated_col="treated",
+    change_period=7,         # the quarter the rate change took effect
+    exposure_col="exposure",
+    unit_col="segment_id",
+)
+
+result = evaluator.fit(df).summary()
+print(result)
+```
+
+Example output:
+
+```
+Rate Change Evaluation Result
+  Method:          DiD (Difference-in-Differences)
+  Outcome:         loss_ratio
+  ATT:             -0.0298
+  ATT (%):         -4.8% of pre-treatment mean
+  SE:               0.0091
+  95% CI:          (-0.0477, -0.0120)
+  p-value:          0.001
+  Parallel trends: p=0.412 (pre-treatment test passes)
+  Pre-treatment mean (treated): 0.621
+  N treated obs:   72  |  N control obs: 48
+  Periods pre/post: 6 / 6
+```
+
+**Per-segment analysis and diagnostics:**
+
+```python
+# Event study: pre-treatment coefficients should cluster near zero
+evaluator.plot_event_study()
+
+# Pre/post observed outcomes: treated vs control over time
+evaluator.plot_pre_post()
+
+# Formal parallel trends test: joint F-test on pre-treatment period dummies
+pt = evaluator.parallel_trends_test()
+print(pt.joint_pt_fstat, pt.joint_pt_pvalue)
+```
+
+**ITS (whole-book evaluation).** When no control group exists -- the entire book received the rate change simultaneously -- use ITS. Set `method="its"` or leave `method="auto"` and omit `treated_col`:
+
+```python
+from insurance_causal.rate_change import make_its_data
+
+df_ts = make_its_data(n_periods=16, true_level_shift=-0.04, seed=42)
+
+evaluator_its = RateChangeEvaluator(
+    method="its",
+    outcome_col="loss_ratio",
+    period_col="quarter",
+    change_period="2023Q3",   # accepts quarter strings or integers
+    exposure_col="earned_years",
+)
+result_its = evaluator_its.fit(df_ts).summary()
+```
+
+ITS fits a segmented regression (level shift + slope change) with Newey-West HAC standard errors for autocorrelation, and quarterly seasonality dummies. The level shift is the primary estimate -- the immediate effect of the rate change on the outcome, holding the pre-treatment trend constant.
+
+**Key classes:**
+
+- `RateChangeEvaluator` -- main entry point; fits DiD or ITS; exposes `.fit()`, `.summary()`, `.plot_event_study()`, `.plot_pre_post()`, `.parallel_trends_test()`
+- `RateChangeResult` -- structured result dataclass with ATT, SE, CI, p-value, method metadata, and list of any estimation warnings
+- `DiDResult` -- detailed DiD output including event study coefficients, staggered adoption detection flag, cluster SE details
+- `ITSResult` -- detailed ITS output including level shift, slope change, and counterfactual trend parameters
+- `UK_INSURANCE_SHOCKS` -- reference dict of known UK market shocks for confounder warnings (Ogden rate changes, whiplash reform, FCA pricing review)
+
+**When to use DiD vs ITS.** If your portfolio has segments, territories, or channels that were unaffected by the rate change, use DiD -- the control group absorbs time trends and macro shocks that would otherwise be attributed to the rate change. ITS is appropriate when the change was book-wide and simultaneous; it relies on the pre-treatment trend being stable and well-estimated, which requires at least 4-6 pre-treatment periods (the default `min_pre_periods=4` enforces this).
+
+**Known limitation.** Both DiD and ITS assume no spillover effects (the SUTVA assumption). In renewal pricing, if control segments and treated segments compete for the same customers via aggregators, a rate change in treated segments can shift demand to control segments, biasing the control group outcome. Check for volume changes in control segments alongside loss ratio changes.
 
 ---
 

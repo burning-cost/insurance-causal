@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.6.0 (2026-03-25)
+
+- feat: add `rate_change` sub-package — post-hoc causal evaluation of historical insurance rate changes
+- `RateChangeEvaluator`: unified API for DiD (difference-in-differences) and ITS (interrupted time series) estimation
+  - `method="auto"` selects DiD when a control group is present, ITS otherwise
+  - `fit(df)` accepts policy-level or segment-period data; aggregates automatically
+  - `summary()` returns `RateChangeResult` with ATT, SE, 95% CI, p-value, and ATT as % of pre-treatment mean
+  - `plot_event_study()` — event study chart with pre/post CIs (DiD)
+  - `plot_pre_post()` — observed vs counterfactual trend (both methods)
+  - `parallel_trends_test()` — pre-treatment event study coefficients and joint F-test
+- `DiDEstimator`: two-way fixed effects with clustered SEs (Cameron & Miller 2015); staggered adoption detection (Goodman-Bacon 2021); parallel trends pre-test
+- `ITSEstimator`: segmented regression with level shift + slope change; quarterly seasonality; Newey-West HAC SEs (Kontopantelis et al. 2015)
+- `make_rate_change_data` and `make_its_data`: synthetic panel generators for testing and demos
+- `UK_INSURANCE_SHOCKS`: reference dict of known UK market shocks (Ogden rate changes, whiplash reform, FCA pricing review) for confounder warnings
+- 84 tests passing
+
 ## v0.5.3 (2026-03-23)
 - fix: pin scipy<1.16 — scipy 1.16 removed `_lazywhere` which statsmodels still imports via doubleml, causing ImportError on fresh install
 
