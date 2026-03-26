@@ -500,7 +500,7 @@ from insurance_causal.rate_change import RateChangeEvaluator, make_rate_change_d
 
 # Synthetic panel: 10,000 policies, 12 quarters, rate change in Q7
 # treated=1 for segments that received a 10% rate increase
-df = make_rate_change_data(n_policies=10_000, true_att=-0.03, seed=42)
+df = make_rate_change_data(n_policies=10_000, true_att=-0.03, random_state=42)
 
 evaluator = RateChangeEvaluator(
     method="auto",           # DiD if control group present, ITS otherwise
@@ -552,7 +552,7 @@ print(pt.joint_pt_fstat, pt.joint_pt_pvalue)
 ```python
 from insurance_causal.rate_change import make_its_data
 
-df_ts = make_its_data(n_periods=16, true_level_shift=-0.04, seed=42)
+df_ts = make_its_data(n_periods=16, true_level_shift=-0.04, random_state=42)
 
 evaluator_its = RateChangeEvaluator(
     method="its",
