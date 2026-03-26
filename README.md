@@ -87,6 +87,10 @@ Estimands: Average Marginal Effect (AME), dose-response curve, policy shift coun
 
 Note: `PremiumElasticity` estimates an Average Marginal Effect under a nonparametric heterogeneous-effects model. This is a different estimand from the constant treatment effect (theta_0) in the partially linear regression model described in the maths section below. The PLR model assumes homogeneous effects; AME relaxes this by integrating heterogeneous marginal effects over the covariate distribution.
 
+---
+
+If this is useful, a ⭐ on GitHub helps others find it.
+
 ### `insurance_causal.elasticity` — renewal pricing optimisation with ENBP constraint
 
 For UK motor/home renewal teams. Estimates heterogeneous treatment effects (GATE by segment), constructs an elasticity surface over the book, and optimises renewal pricing subject to an ENBP (Expected Net Book Premium) constraint.
