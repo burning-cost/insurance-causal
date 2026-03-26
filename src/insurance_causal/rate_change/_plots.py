@@ -154,7 +154,7 @@ def plot_pre_post_did(
     # Aggregate to period x treated level
     period_treated_mean = (
         df_agg.groupby([period_col, treated_col])
-        .apply(_weighted_mean)
+        .apply(_weighted_mean, include_groups=False)
         .reset_index()
         .rename(columns={0: outcome_col})
     )
