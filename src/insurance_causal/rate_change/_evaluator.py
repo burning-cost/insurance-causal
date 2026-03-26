@@ -471,7 +471,9 @@ class RateChangeEvaluator:
                     self.exposure_col: total_w,
                 })
 
-            df_agg = df.groupby(period_col).apply(_agg_period).reset_index()
+            df_agg = df.groupby(period_col).apply(
+                _agg_period, include_groups=False
+            ).reset_index()
         else:
             df_agg = (
                 df.groupby(period_col)[self.outcome_col]
