@@ -29,7 +29,7 @@ The key steps under the hood:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -714,7 +714,7 @@ class CausalPricingModel:
     # ------------------------------------------------------------------
 
     @property
-    def dml_model(self):
+    def dml_model(self) -> Any:
         """The underlying DoubleMLPLR object, for advanced use."""
         self._check_fitted()
         return self._dml_model

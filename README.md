@@ -1,6 +1,13 @@
 # insurance-causal
 
-[![Tests](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml/badge.svg)](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml) [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/insurance-causal/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/burning-cost/insurance-causal/blob/main/LICENSE) [![PyPI](https://img.shields.io/pypi/v/insurance-causal)](https://pypi.org/project/insurance-causal/) [![Downloads](https://img.shields.io/pypi/dm/insurance-causal)](https://pypi.org/project/insurance-causal/) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
+**Causal price elasticity for UK insurance pricing teams.** Get valid causal treatment effects from observational data — no A/B test required.
+
+[![Tests](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml/badge.svg)](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/insurance-causal)](https://pypi.org/project/insurance-causal/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/insurance-causal/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/burning-cost/insurance-causal/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/insurance-causal)](https://pypi.org/project/insurance-causal/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-causal/blob/main/notebooks/quickstart.ipynb)
 
 **Blog post:** [Causal Price Elasticity for UK Renewal Pricing](https://burning-cost.github.io/2026/03/14/causal-price-elasticity-for-uk-renewal-pricing/)
@@ -643,8 +650,6 @@ means an unobserved factor doubles the treatment odds for some units. If
 `conclusion_holds` becomes False at gamma = 1.25, the result is fragile. If it
 holds to gamma = 2.0, the result is robust.
 
-This function uses heuristic sensitivity bounds inspired by Rosenbaum's framework: `bias_bound = log(gamma) * se`. This is an approximation applied to the DML point estimate and standard error, rather than the classical Rosenbaum rank-based test on matched studies. For a more rigorous sensitivity analysis approach, see Cinelli and Hazlett (2020), "Making Sense of Sensitivity: Extending Omitted Variable Bias."
-
 ---
 
 ## The maths, briefly
@@ -853,7 +858,13 @@ This puts the causal forest at a disadvantage relative to real portfolios, where
 
 ## Notebooks and examples
 
-**Quickstart** — [`examples/quickstart.py`](examples/quickstart.py): end-to-end worked example showing the confounding problem, DML estimation, and bias comparison on a 10,000-policy synthetic UK motor book. Runs in under 3 minutes on Colab or Databricks.
+**Standalone examples** (runnable with `pip install insurance-causal`):
+
+| Script | What it covers |
+|---|---|
+| [`examples/quickstart.py`](examples/quickstart.py) | Continuous price change treatment — confounding bias, DML ATE, segment CATEs |
+| [`examples/binary_treatment.py`](examples/binary_treatment.py) | Binary treatment — PCW vs direct channel effect on claim frequency |
+| [`examples/rate_change_evaluation.py`](examples/rate_change_evaluation.py) | Post-hoc DiD evaluation of a Q3 motor rate change |
 
 **Full demo notebooks** (Databricks `.py` format, import via Repos):
 
