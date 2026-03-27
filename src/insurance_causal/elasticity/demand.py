@@ -77,12 +77,16 @@ def demand_curve(
     #
     # If the estimator exposes predict_proba or a propensity attribute, use it;
     # otherwise fall back to a smoothed version of the observed outcome.
+    p0 = None
     if hasattr(estimator, 'predict_proba') and callable(estimator.predict_proba):
-        p0 = np.clip(estimator.predict_proba(df), 0.01, 0.99)
-    elif hasattr(estimator, '_g_hat') and estimator._g_hat is not None:
+        try:
+            p0 = np.clip(estimator.predict_proba(df), 0.01, 0.99)
+        except AttributeError:
+            pass
+    if p0 is None and hasattr(estimator, '_g_hat') and estimator._g_hat is not None:
         # Use the fitted nuisance outcome predictions (E[Y|D,X]) as baseline
         p0 = np.clip(estimator._g_hat, 0.01, 0.99)
-    else:
+    if p0 is None:
         # Fallback: use the portfolio mean (no per-customer variation)
         y_observed = df["renewed"].to_numpy().astype(float)
         overall_rate = float(np.mean(y_observed))

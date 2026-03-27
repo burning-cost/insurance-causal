@@ -89,7 +89,7 @@ class ElasticitySurface:
                 "ci_lower": [float(np.mean(lb_vals))],
                 "ci_upper": [float(np.mean(ub_vals))],
                 "n": [len(df)],
-                "elasticity_at_10pct": [float(np.mean(cate_vals) * 0.0953)],  # log(1.1)
+                "elasticity_at_10pct": [float(np.mean(cate_vals) * np.log(1.1))],
             })
 
         if isinstance(by, str):
@@ -107,7 +107,7 @@ class ElasticitySurface:
                 pl.len().alias("n"),
             ])
             .with_columns(
-                (pl.col("elasticity") * 0.0953).alias("elasticity_at_10pct")
+                (pl.col("elasticity") * np.log(1.1)).alias("elasticity_at_10pct")
             )
             .sort(group_cols)
         )

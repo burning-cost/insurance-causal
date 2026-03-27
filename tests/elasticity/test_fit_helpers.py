@@ -254,11 +254,15 @@ class TestCateIntervalFallback:
         est.fit(df, confounders=confounders)
 
         # Monkey-patch: remove effect_interval
+        # Capture the original estimator before replacing it to avoid infinite
+        # recursion — after the assignment est._estimator IS the new object.
+        _original_estimator = est._estimator
+
         class _NoIntervalEstimator:
             def effect(self, X):
-                return est._estimator.effect(X)
+                return _original_estimator.effect(X)
             def ate_interval(self, X=None, alpha=0.05):
-                return est._estimator.ate_interval(X=X, alpha=alpha)
+                return _original_estimator.ate_interval(X=X, alpha=alpha)
             # no effect_interval
 
         est._estimator = _NoIntervalEstimator()
