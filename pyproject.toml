@@ -31,7 +31,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Office/Business :: Financial",
 ]
 dependencies = [
@@ -84,11 +84,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://burning-cost.github.io/insurance-causal"
+Homepage = "https://burning-cost.github.io/"
 Repository = "https://github.com/burning-cost/insurance-causal"
 Changelog = "https://github.com/burning-cost/insurance-causal/releases"
 Documentation = "https://burning-cost.github.io/insurance-causal"
-Issues = "https://github.com/burning-cost/insurance-causal/issues"
+"Bug Tracker" = "https://github.com/burning-cost/insurance-causal/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_causal"]
@@ -96,3 +96,8 @@ packages = ["src/insurance_causal"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--tb=short"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]

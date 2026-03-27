@@ -851,11 +851,11 @@ This puts the causal forest at a disadvantage relative to real portfolios, where
 
 | Notebook | What it covers |
 |---|---|
-| [`notebooks/01_insurance_causal_demo.py`](notebooks/01_insurance_causal_demo.py) | Core DML, confounding bias report, sensitivity analysis |
-| [`notebooks/02_autodml_demo.py`](notebooks/02_autodml_demo.py) | Riesz representer AME, dose-response curve |
-| [`notebooks/03_elasticity_demo.py`](notebooks/03_elasticity_demo.py) | Renewal pricing optimisation, ENBP constraint |
-| [`notebooks/04_causal_forest_hte_demo.py`](notebooks/04_causal_forest_hte_demo.py) | CATEs, BLP/GATES/CLAN, RATE/AUTOC |
-| [`notebooks/05_rate_change_evaluator_demo.py`](notebooks/05_rate_change_evaluator_demo.py) | DiD and ITS post-hoc evaluation |
+| [`notebooks/01_insurance_causal_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/01_insurance_causal_demo.py) | Core DML, confounding bias report, sensitivity analysis |
+| [`notebooks/02_autodml_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/02_autodml_demo.py) | Riesz representer AME, dose-response curve |
+| [`notebooks/03_elasticity_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/03_elasticity_demo.py) | Renewal pricing optimisation, ENBP constraint |
+| [`notebooks/04_causal_forest_hte_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/04_causal_forest_hte_demo.py) | CATEs, BLP/GATES/CLAN, RATE/AUTOC |
+| [`notebooks/05_rate_change_evaluator_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/05_rate_change_evaluator_demo.py) | DiD and ITS post-hoc evaluation |
 
 A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/insurance_causal_demo.py).
 
