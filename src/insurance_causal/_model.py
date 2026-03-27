@@ -44,6 +44,7 @@ from ._utils import (
     gamma_outcome_transform,
     check_overlap,
 )
+from ._validation import check_dataframe, check_not_empty, check_confounders
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +236,9 @@ class CausalPricingModel:
         """
         import doubleml as dml
 
+        check_dataframe(df, "df")
         df_pd = to_pandas(df)
+        check_not_empty(df_pd, "df")
         self._n_obs = len(df_pd)
 
         # --- Validate inputs -----------------------------------------------
@@ -313,15 +316,18 @@ class CausalPricingModel:
             return y.astype(float)
 
     def _validate_columns(self, df_pd: pd.DataFrame) -> None:
-        """Check all required columns are present."""
-        required = set(self.confounders) | {self.outcome, self.treatment.column}
+        """Check all required columns are present, with actionable error messages."""
+        required = list(self.confounders) + [self.outcome, self.treatment.column]
         if self.exposure_col:
-            required.add(self.exposure_col)
-        missing = required - set(df_pd.columns)
+            required.append(self.exposure_col)
+        available = list(df_pd.columns)
+        missing = [c for c in required if c not in available]
         if missing:
             raise ValueError(
-                f"Missing columns in input data: {sorted(missing)}. "
-                f"Available columns: {sorted(df_pd.columns)}."
+                f"insurance-causal: column(s) {missing} not found in the DataFrame passed to .fit(). "
+                f"Available columns: {available}. "
+                "Check that outcome, treatment.column, confounders, and exposure_col (if set) "
+                "all match column names in your data."
             )
 
     def _build_nuisance_models(self) -> tuple:

@@ -88,7 +88,7 @@ log_odds = (
     + 0.02 * ncb_years
     + RNG.normal(0, 0.05, N)
 )
-renewal = (RNG.uniform(N) < 1 / (1 + np.exp(-log_odds))).astype(int)
+renewal = (RNG.uniform(size=N) < 1 / (1 + np.exp(-log_odds))).astype(int)
 
 age_band = np.where(driver_age < 35, "young",
            np.where(driver_age < 55, "mid", "senior"))

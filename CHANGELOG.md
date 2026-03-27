@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.2 (2026-03-27)
+
+- fix: re-pin `scipy>=1.12,<1.16` — the upper bound was dropped in v0.6.0 when the rate_change subpackage was added. scipy 1.16 removed `_lazywhere` which statsmodels (a doubleml dependency) still imports, causing `ImportError` on fresh install. Constraint remains until statsmodels releases a fix.
+- fix: bump `statsmodels>=0.14.4` (was `>=0.14`) — 0.14.4 removes the `_lazywhere` import internally; the floor clarifies which statsmodels versions are known-safe.
+- fix: `examples/quickstart.py` line 91: `RNG.uniform(N)` -> `RNG.uniform(size=N)`. The positional-argument form passes N as the upper bound of a scalar draw, producing a single float instead of an array — which crashes with numpy>=2.0.
+- docs: add one-liner hook to README for Python/insurance audience.
+- docs: clarify README quickstart output is deterministic with seed=42 but may vary by scipy/catboost version.
+- docs: add dependency note about scipy<1.16 constraint to Install section.
+
 ## v0.6.0 (2026-03-25)
 
 - feat: add `rate_change` sub-package — post-hoc causal evaluation of historical insurance rate changes

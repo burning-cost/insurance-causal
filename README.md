@@ -7,6 +7,8 @@
 
 ---
 
+> Your GLM says price sensitivity is −0.045. DML says it's −0.023. The difference is what gets priced wrong.
+
 ## The problem
 
 Your GLM coefficient on price change is probably wrong — not because the model is badly built, but because price changes were never randomly assigned.
@@ -37,6 +39,8 @@ For causal forest heterogeneous effects and renewal pricing optimisation (requir
 pip install "insurance-causal[all]"
 ```
 
+**Dependency note:** The library pins `scipy<1.16` because scipy 1.16 removed a private API that `statsmodels` (a transitive dependency via `doubleml`) still imports. This constraint will be lifted once statsmodels releases a compatible version. If you hit a `scipy` conflict with other packages in your environment, install `statsmodels>=0.14.4` explicitly first.
+
 ---
 
 ## Quickstart
@@ -58,7 +62,7 @@ model.fit(df)
 print(model.average_treatment_effect())
 ```
 
-Output:
+Output (values are deterministic with seed=42; exact figures depend on your scipy/catboost versions):
 
 ```
 Average Treatment Effect
@@ -71,7 +75,9 @@ Average Treatment Effect
   N:         10,000
 ```
 
-The full worked example with synthetic confounding, bias comparison, and segment-level effects is in [`examples/quickstart.py`](examples/quickstart.py).
+The true semi-elasticity in the synthetic DGP ranges from −1.0 to −3.5 by NCD/age segment, so an estimate around −0.23 is in the right region (the DML estimate on the log_price_change scale reflects the population average, not the DGP true elasticity directly).
+
+The full worked example — with explicit confounding structure, naive GLM comparison, and bias report — is in [`examples/quickstart.py`](examples/quickstart.py). Run it with `python examples/quickstart.py` after installing.
 
 ---
 
