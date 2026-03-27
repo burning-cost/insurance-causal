@@ -3,6 +3,8 @@
 [![Tests](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml/badge.svg)](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml) [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://pypi.org/project/insurance-causal/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/burning-cost/insurance-causal/blob/main/LICENSE) [![PyPI](https://img.shields.io/pypi/v/insurance-causal)](https://pypi.org/project/insurance-causal/) [![Downloads](https://img.shields.io/pypi/dm/insurance-causal)](https://pypi.org/project/insurance-causal/) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-causal/blob/main/notebooks/quickstart.ipynb)
 
+**Blog post:** [Causal Price Elasticity for UK Renewal Pricing](https://burning-cost.github.io/2026/03/14/causal-price-elasticity-for-uk-renewal-pricing/)
+
 ---
 
 ## The problem
