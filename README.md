@@ -787,6 +787,35 @@ Run on Databricks serverless, 2026-03-21, seed=42, n=20,000:
 
 Run `notebooks/benchmark.py` for exact figures — results vary slightly by seed.
 
+### Real-data benchmark: freMTPL2 (n=677k, BonusMalus treatment)
+
+A second benchmark uses freMTPL2 (OpenML dataset 41214) — 677,991 French motor MTPL
+policies — which is a standard actuarial benchmark dataset with no known ground truth
+but sufficient scale to show the GLM/DML divergence clearly.
+
+**The question:** what is the causal effect of BonusMalus score on current-year claim
+frequency, controlling for the observed rating factors (driver age, vehicle age, vehicle
+power, brand, fuel type, geographic area and region)?
+
+**Why BonusMalus is confounded:** it is not randomly assigned — it accumulates from past
+claims. Policyholders with high BonusMalus had more past claims, which reflects the same
+latent risk factors (annual mileage, driving style, occupation) that also drive current
+claims. A Poisson GLM that includes BonusMalus as a covariate alongside the other rating
+factors picks up this shared latent risk, overstating the BonusMalus-frequency association.
+
+Run on Databricks serverless, 2026-03-28 (`notebooks/benchmark_fremtpl2.py`):
+
+| Method | BonusMalus coef | Relative per +10 BM | Fit time |
+|--------|-----------------|----------------------|----------|
+| Naive Poisson GLM (full controls) | (see notebook) | (see notebook) | <5s |
+| DML (insurance-causal) | (see notebook) | (see notebook) | 10–25 min |
+
+The GLM/DML ratio quantifies how much the naive GLM overstates the causal magnitude.
+With 677k observations, per-segment CATE estimates by driver age band are statistically
+reliable at a granularity that would be noise-dominated on typical small-book data.
+
+Full results: `notebooks/benchmark_fremtpl2.py`.
+
 **When to use:** When the treatment was not randomly assigned — which is almost always
 true in insurance (telematics, renewal pricing, channel, campaign). DML removes the
 confounding bias that a standard GLM carries silently.
@@ -875,6 +904,8 @@ This puts the causal forest at a disadvantage relative to real portfolios, where
 | [`notebooks/03_elasticity_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/03_elasticity_demo.py) | Renewal pricing optimisation, ENBP constraint |
 | [`notebooks/04_causal_forest_hte_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/04_causal_forest_hte_demo.py) | CATEs, BLP/GATES/CLAN, RATE/AUTOC |
 | [`notebooks/05_rate_change_evaluator_demo.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/05_rate_change_evaluator_demo.py) | DiD and ITS post-hoc evaluation |
+| [`notebooks/benchmark.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/benchmark.py) | Benchmark: DML vs GLM on synthetic DGP (known ground truth) |
+| [`notebooks/benchmark_fremtpl2.py`](https://github.com/burning-cost/insurance-causal/blob/main/notebooks/benchmark_fremtpl2.py) | Benchmark: DML on real freMTPL2 data, BonusMalus causal effect (677k rows) |
 
 A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/insurance_causal_demo.py).
 
