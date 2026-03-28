@@ -28,6 +28,19 @@ The same problem arises with telematics (harsh braking correlated with urban dri
 
 ---
 
+## Features
+
+- **Double Machine Learning (DML)** — valid causal treatment effects from observational data; CatBoost nuisance models handle non-linear confounding
+- **Causal forest with formal HTE inference** — per-customer CATEs, BLP/GATES/CLAN heterogeneity tests, RATE/AUTOC targeting validation
+- **Renewal pricing optimisation** — ENBP-constrained rate optimisation using causal elasticity estimates, not naive GLM coefficients
+- **Post-hoc rate change evaluation** — DiD and ITS for measuring whether a past rate change actually worked
+- **Causal clustering** — unsupervised segments defined by treatment-effect similarity, not demographic proximity
+- **Riesz representer AME** — continuous treatment elasticity without the generalised propensity score (avoids numerical instability on rule-based pricing data)
+- **Confounding bias report** — quantifies how far a naive GLM estimate deviates from the causal estimate, and why
+- **Sample-size adaptive** — CatBoost capacity scales with n to prevent over-partialling on small UK books (n ≥ 1,000)
+
+---
+
 ## Install
 
 ```bash
