@@ -333,7 +333,7 @@ def _prepare_features(df_pd: object, confounders: list[str]) -> object:
     import pandas as pd
     subset = df_pd[confounders]
     # Encode object/category columns
-    obj_cols = subset.select_dtypes(include=["object", "str", "category"]).columns.tolist()
+    obj_cols = subset.select_dtypes(include=["object", "string", "category"]).columns.tolist()
     if obj_cols:
         subset = pd.get_dummies(subset, columns=obj_cols, drop_first=True)
     return subset.values.astype(float)
