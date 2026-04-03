@@ -382,15 +382,22 @@ def check_overlap(treatment_values: np.ndarray, n_bins: int = 10) -> dict:
 
     Returns a dict with summary statistics.
     """
+    lo = float(np.min(treatment_values))
+    hi = float(np.max(treatment_values))
+    # Clamp std to exactly 0.0 when the array is constant. Some numpy builds
+    # return a tiny floating-point residual (e.g. 2.8e-17) rather than 0.0
+    # for a constant array, which is misleading in an overlap check context.
+    raw_std = float(np.std(treatment_values))
+    std = 0.0 if lo == hi else raw_std
     stats = {
         "n_obs": len(treatment_values),
         "mean": float(np.mean(treatment_values)),
-        "std": float(np.std(treatment_values)),
-        "min": float(np.min(treatment_values)),
+        "std": std,
+        "min": lo,
         "p5": float(np.percentile(treatment_values, 5)),
         "p25": float(np.percentile(treatment_values, 25)),
         "p75": float(np.percentile(treatment_values, 75)),
         "p95": float(np.percentile(treatment_values, 95)),
-        "max": float(np.max(treatment_values)),
+        "max": hi,
     }
     return stats

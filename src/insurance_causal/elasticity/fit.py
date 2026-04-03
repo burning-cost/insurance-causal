@@ -497,7 +497,7 @@ def _extract_arrays(
     D = df_pd[treatment].values.astype(float)
 
     subset = df_pd[confounders].copy()
-    obj_cols = subset.select_dtypes(include=["object", "category"]).columns.tolist()
+    obj_cols = subset.select_dtypes(include=["object", "str", "category"]).columns.tolist()
     if obj_cols:
         subset = pd.get_dummies(subset, columns=obj_cols, drop_first=True)
 

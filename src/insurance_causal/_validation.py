@@ -83,6 +83,10 @@ def check_column_numeric(df: Any, col: str, param: str) -> None:
     """Raise TypeError if *col* is not a numeric dtype in *df*.
 
     Supports both pandas and polars.
+
+    Pandas 3.x changed how non-numeric dtypes behave with np.issubdtype: calling
+    np.issubdtype(StringDtype(...), np.number) now raises TypeError instead of
+    returning False. We catch that and treat it as "not numeric".
     """
     import numpy as np
 
@@ -90,7 +94,14 @@ def check_column_numeric(df: Any, col: str, param: str) -> None:
         import pandas as pd
         if isinstance(df, pd.DataFrame):
             dtype = df[col].dtype
-            if not np.issubdtype(dtype, np.number):
+            try:
+                is_numeric = np.issubdtype(dtype, np.number)
+            except TypeError:
+                # pandas 3.x extension dtypes (StringDtype, CategoricalDtype,
+                # ArrowDtype, etc.) raise TypeError from np.issubdtype — treat
+                # them as non-numeric.
+                is_numeric = False
+            if not is_numeric:
                 raise TypeError(
                     f"insurance-causal: `{param}` column {col!r} must be numeric, "
                     f"got dtype {dtype!r}. "
