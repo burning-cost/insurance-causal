@@ -118,8 +118,3 @@ packages = ["src/insurance_causal"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--tb=short"
-
-[dependency-groups]
-dev = [
-    "pytest-cov>=7.0.0",
-]
