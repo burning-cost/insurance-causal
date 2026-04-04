@@ -963,3 +963,11 @@ A ready-to-run Databricks notebook benchmarking this library against standard ap
 | [insurance-spatial](https://github.com/burning-cost/insurance-spatial) | BYM2 spatial territory ratemaking for UK personal lines |
 
 [All libraries ->](https://burning-cost.github.io)
+
+## Related Libraries
+
+| Library | Description |
+|---------|-------------|
+| [`insurance-fairness`](https://github.com/burning-cost/insurance-fairness) | Fairness auditing — use causal estimates to distinguish genuine rating factors from proxy discrimination |
+| [`insurance-conformal`](https://github.com/burning-cost/insurance-conformal) | Conformal prediction intervals — wrap causal effect estimates with distribution-free uncertainty bounds |
+| [`insurance-cv`](https://github.com/burning-cost/insurance-cv) | Walk-forward temporal cross-validation — essential for validating causal models on time-structured insurance data |
