@@ -354,7 +354,11 @@ class HeterogeneousInference:
         df_pd = _to_pandas(df)
         Y = df_pd[estimator._outcome_col].values.astype(float)
         D = df_pd[estimator._treatment_col].values.astype(float)
-        X = estimator._X_train
+        # Cast to float64: econml CausalForestDML.effect() can return object-dtype
+        # arrays in some numpy/econml version combinations, causing np.percentile
+        # and scipy.stats calls in GATES/CLAN to raise "data type not inexact".
+        cate_proxy = np.asarray(cate_proxy, dtype=np.float64)
+        X = np.asarray(estimator._X_train, dtype=np.float64)
         feature_names = estimator._feature_names
 
         if confounders is None:
@@ -626,8 +630,8 @@ def _fit_propensity(
     try:
         from sklearn.ensemble import GradientBoostingRegressor
         m = GradientBoostingRegressor(n_estimators=50, max_depth=3, random_state=42)
-        m.fit(X_train, D_train)
-        return m.predict(X_test)
+        m.fit(np.asarray(X_train, dtype=np.float64), D_train)
+        return m.predict(np.asarray(X_test, dtype=np.float64))
     except Exception:
         # Fallback to mean
         return np.full(len(D_test), np.mean(D_train))
