@@ -4,23 +4,44 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal"
-version = "0.6.2"
-description = "Causal inference for insurance pricing: DML, AutoDML via Riesz Representers, causal price elasticity, heterogeneous treatment effects, and post-hoc rate change evaluation."
+version = "0.6.3"
+description = "Causal inference for insurance pricing: double machine learning, price elasticity, heterogeneous treatment effects, and post-hoc rate change evaluation for UK personal lines."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
 keywords = [
-    "insurance", "causal-inference", "double-machine-learning", "dml",
-    "pricing", "actuarial", "treatment-effect", "econometrics",
-    "catboost", "polars", "riesz-representer", "price-elasticity",
-    "dose-response", "renewal-pricing", "GIPP", "PS21/5",
+    "insurance",
+    "causal inference",
+    "causal-inference",
+    "double machine learning",
+    "double-machine-learning",
+    "dml",
+    "pricing",
+    "actuarial",
     "UK",
     "personal lines",
-    "heterogeneous-treatment-effects", "hte", "causal-forest",
-    "blp", "gates", "clan", "rate", "autoc",
-    "difference-in-differences", "did", "interrupted-time-series", "its",
-    "rate-change", "consumer-duty",
+    "treatment effect",
+    "heterogeneous treatment effects",
+    "hte",
+    "causal forest",
+    "econometrics",
+    "price elasticity",
+    "dose response",
+    "renewal pricing",
+    "rate change",
+    "riesz representer",
+    "GIPP",
+    "PS21/5",
+    "consumer duty",
+    "difference in differences",
+    "interrupted time series",
+    "uplift modelling",
+    "catboost",
+    "polars",
+    "blp",
+    "gates",
+    "autoc",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -31,6 +52,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Office/Business :: Financial",
 ]
@@ -84,11 +106,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://burning-cost.github.io/"
+Homepage = "https://burning-cost.github.io/libraries/insurance-causal/"
+Documentation = "https://burning-cost.github.io/libraries/insurance-causal/"
 Repository = "https://github.com/burning-cost/insurance-causal"
-Changelog = "https://github.com/burning-cost/insurance-causal/releases"
-Documentation = "https://burning-cost.github.io/insurance-causal"
 "Bug Tracker" = "https://github.com/burning-cost/insurance-causal/issues"
+Changelog = "https://github.com/burning-cost/insurance-causal/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_causal"]
