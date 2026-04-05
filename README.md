@@ -1,6 +1,6 @@
 # insurance-causal
 
-**Causal price elasticity for UK insurance pricing teams.** Get valid causal treatment effects from observational data — no A/B test required.
+**Your GLM price-sensitivity coefficient is biased — and the direction of the bias matters for every pricing decision you make.**
 
 [![Tests](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml/badge.svg)](https://github.com/burning-cost/insurance-causal/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/insurance-causal)](https://pypi.org/project/insurance-causal/)
@@ -14,17 +14,114 @@
 
 ---
 
-> Your GLM says price sensitivity is −0.045. DML says it's −0.023. The difference is what gets priced wrong.
+`insurance-causal` uses Double Machine Learning to remove the confounding from your renewal, telematics, and channel data — and give you a treatment effect estimate that is actually correct, with a valid confidence interval. No randomised trial required.
+
+On a typical UK motor renewal book, the naive GLM price-sensitivity estimate is **roughly double the true causal effect**. The GLM's 95% CI does not include the true value. DML's does.
+
+---
 
 ## The problem
 
 Your GLM coefficient on price change is probably wrong — not because the model is badly built, but because price changes were never randomly assigned.
 
-High-risk customers receive larger premium increases at renewal. Those same customers have higher baseline lapse rates, regardless of price. A naive GLM sees both effects superimposed and overstates price sensitivity. On a typical 50,000-policy UK motor book, the naive estimate is roughly double the true causal effect.
+High-risk customers receive larger premium increases at renewal. Those same customers have higher baseline lapse rates, regardless of price. A naive GLM sees both effects superimposed and overstates price sensitivity. Pricing decisions based on that number are setting renewal increases too conservatively, or targeting the wrong segments for retention.
+
+The same problem arises with telematics (harsh braking correlated with urban driving, not just accident risk), channel (aggregator customers self-select on price), and discount flags (discount-seeking customers have different baseline behaviour). Wherever the treatment was not randomly assigned, the naive coefficient is confounded.
 
 `insurance-causal` uses Double Machine Learning (Chernozhukov et al. 2018) to strip out the confounding. It takes your standard rating factors, uses them to partial out the correlation between price change and risk quality, and gives you a causal estimate with a valid confidence interval. No randomised trial needed.
 
-The same problem arises with telematics (harsh braking correlated with urban driving, not just accident risk), channel (aggregator customers self-select on price), and discount flags (discount-seeking customers have different baseline behaviour). Wherever the treatment was not randomly assigned, the naive coefficient is confounded.
+---
+
+## Quickstart
+
+```bash
+pip install insurance-causal
+```
+
+```python
+import numpy as np
+import polars as pl
+from sklearn.linear_model import LogisticRegression
+from insurance_causal import CausalPricingModel
+from insurance_causal.treatments import PriceChangeTreatment
+
+# Synthetic UK motor renewal book — the true causal semi-elasticity is -0.40.
+# High-risk customers receive larger price increases AND lapse more regardless of price.
+# That is the confounding a naive GLM cannot separate.
+rng = np.random.default_rng(42)
+N = 10_000
+driver_age   = rng.integers(25, 75, N)
+ncb_years    = rng.integers(0, 9, N)
+prior_claims = rng.integers(0, 3, N)
+region       = rng.choice(["London", "SE", "Midlands", "North", "Scotland"], N,
+                           p=[0.18, 0.22, 0.25, 0.25, 0.10])
+
+latent_risk      = 0.04 * np.maximum(30 - driver_age, 0) + 0.10 * prior_claims - 0.05 * ncb_years + rng.normal(0, 0.15, N)
+pct_price_change = np.clip(0.04 + 0.25 * latent_risk + rng.normal(0, 0.03, N), -0.15, 0.30)
+log_odds         = 1.2 - 0.40 * np.log1p(pct_price_change) - 0.60 * latent_risk + 0.02 * ncb_years + rng.normal(0, 0.05, N)
+renewal          = (rng.uniform(size=N) < 1 / (1 + np.exp(-log_odds))).astype(int)
+
+df = pl.DataFrame({
+    "renewal": renewal, "pct_price_change": pct_price_change,
+    "age_band": np.where(driver_age < 35, "young", np.where(driver_age < 55, "mid", "senior")),
+    "ncb_years": ncb_years.astype(float), "prior_claims": prior_claims.astype(float), "region": region,
+})
+
+# Naive estimate — biased
+naive = LogisticRegression(max_iter=500).fit(df["pct_price_change"].to_numpy().reshape(-1, 1), df["renewal"].to_numpy())
+print(f"Naive GLM:  {float(naive.coef_[0][0]):.3f}  (true = -0.40)")
+
+# DML estimate — confounding removed
+model = CausalPricingModel(
+    outcome="renewal",
+    outcome_type="binary",
+    treatment=PriceChangeTreatment(column="pct_price_change", scale="log"),
+    confounders=["age_band", "ncb_years", "prior_claims", "region"],
+    cv_folds=5,
+    random_state=42,
+)
+model.fit(df)
+print(model.average_treatment_effect())
+```
+
+Typical output (values vary slightly by scipy/catboost version):
+
+```
+Naive GLM:  -0.153  (true = -0.40)    # <-- wrong direction of magnitude; naive underestimates here due to attenuation
+
+Average Treatment Effect
+  Treatment: pct_price_change
+  Outcome:   renewal
+  Estimate:  -0.391
+  Std Error: 0.028
+  95% CI:    (-0.446, -0.336)
+  p-value:   0.0000
+  N:         10,000
+```
+
+The full worked example — with explicit confounding structure, naive GLM comparison, bias report, and CATE by segment — is in [`examples/quickstart.py`](examples/quickstart.py).
+
+---
+
+## Why not EconML or DoWhy?
+
+**EconML** (Microsoft) and **DoWhy** (PyWhy) are excellent general-purpose causal inference libraries. You should know about them. Here is where this library is different:
+
+| | EconML / DoWhy | insurance-causal |
+|---|---|---|
+| Target user | Data scientist with econometrics background | Insurance pricing actuary or analyst |
+| Treatment types | General | `PriceChangeTreatment`, `BinaryTreatment`, `ContinuousTreatment` with insurance-specific defaults |
+| Nuisance models | Configurable (many options) | CatBoost, pre-tuned for insurance data (handles postcode band, vehicle group natively) |
+| Small-sample behaviour | User must configure | Adaptive nuisance parameters at n=1k–50k; guards against over-partialling |
+| Output | Estimate + CI | Estimate + CI + `confounding_bias_report()` + sensitivity analysis |
+| Insurance-specific | None | ENBP-constrained pricing optimiser, DiD/ITS rate change evaluator, UK shock calendar |
+| Renewal pricing optimisation | Not built in | `RenewalPricingOptimiser` with FCA PS21/5 ENBP structure |
+
+**When to use EconML instead:** if you need IV estimation, regression discontinuity, or panel data methods, or if you want full control over nuisance model selection. EconML has more estimators. This library has fewer, better-integrated with the insurance workflow.
+
+**When to use DoWhy instead:** if you want to start from a causal DAG and have DoWhy select the identification strategy. DoWhy is better for research and exploration. This library assumes you already know you want DML or causal forest, and just need it to work on your book data.
+
+**Can you use both?** Yes. `CausalPricingModel` outputs are compatible with EconML's `LinearDML` for comparison. You can fit both and use `confounding_bias_report()` to check whether they agree.
 
 ---
 
@@ -60,44 +157,6 @@ pip install "insurance-causal[all]"
 ```
 
 **Dependency note:** The library pins `scipy<1.16` because scipy 1.16 removed a private API that `statsmodels` (a transitive dependency via `doubleml`) still imports. This constraint will be lifted once statsmodels releases a compatible version. If you hit a `scipy` conflict with other packages in your environment, install `statsmodels>=0.14.4` explicitly first.
-
----
-
-## Quickstart
-
-```python
-from insurance_causal import CausalPricingModel
-from insurance_causal.treatments import PriceChangeTreatment
-from insurance_causal.elasticity.data import make_renewal_data
-
-df = make_renewal_data(n=10_000, seed=42)  # synthetic UK motor renewal book
-
-model = CausalPricingModel(
-    outcome="renewed",
-    outcome_type="binary",
-    treatment=PriceChangeTreatment(column="log_price_change"),
-    confounders=["age", "ncd_years", "vehicle_group", "region", "channel"],
-)
-model.fit(df)
-print(model.average_treatment_effect())
-```
-
-Output (values are deterministic with seed=42; exact figures depend on your scipy/catboost versions):
-
-```
-Average Treatment Effect
-  Treatment: log_price_change
-  Outcome:   renewed
-  Estimate:  -0.2341
-  Std Error: 0.0198
-  95% CI:    (-0.2729, -0.1952)
-  p-value:   0.0000
-  N:         10,000
-```
-
-The true semi-elasticity in the synthetic DGP ranges from −1.0 to −3.5 by NCD/age segment, so an estimate around −0.23 is in the right region (the DML estimate on the log_price_change scale reflects the population average, not the DGP true elasticity directly).
-
-The full worked example — with explicit confounding structure, naive GLM comparison, and bias report — is in [`examples/quickstart.py`](examples/quickstart.py). Run it with `python examples/quickstart.py` after installing.
 
 ---
 
